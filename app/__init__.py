@@ -1,6 +1,7 @@
 from flask import Flask
 from config import Config
-from app.extensions import db, migrate, login_manager
+from app.extensions import db, login_manager
+from bson import ObjectId
 
 
 def create_app(config_class=Config):
@@ -9,18 +10,20 @@ def create_app(config_class=Config):
 
     # Initialize extensions
     db.init_app(app)
-    migrate.init_app(app, db)
     login_manager.init_app(app)
     login_manager.login_view = "auth.login"
     login_manager.login_message = "Por favor inicia sesión para acceder a esta página."
     login_manager.login_message_category = "info"
 
-    # User loader for Flask-Login
+    # User loader for Flask-Login (using ObjectId for MongoDB)
     from app.models import User
 
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        try:
+            return User.objects.get(id=ObjectId(user_id))
+        except Exception:
+            return None
 
     # Register blueprints
     from app.routes import main, api, reports, warehouse, auth
@@ -55,22 +58,26 @@ def create_app(config_class=Config):
     @app.before_request
     def load_tenant():
         # Si el usuario está autenticado, usar su tenant
-        if current_user.is_authenticated and current_user.tenant_id:
-            g.current_tenant = Tenant.query.get(current_user.tenant_id)
+        if current_user.is_authenticated and current_user.tenant:
+            g.current_tenant = current_user.tenant
         else:
             tenant_id = session.get("tenant_id")
             if tenant_id:
-                g.current_tenant = Tenant.query.get(tenant_id)
+                try:
+                    g.current_tenant = Tenant.objects.get(id=ObjectId(tenant_id))
+                except Exception:
+                    g.current_tenant = None
             else:
                 # Default to first tenant or None
-                g.current_tenant = Tenant.query.filter_by(
-                    slug="puerto-distribucion"
-                ).first()
+                g.current_tenant = Tenant.objects(slug="puerto-distribucion").first()
                 if g.current_tenant:
-                    session["tenant_id"] = g.current_tenant.id
+                    session["tenant_id"] = str(g.current_tenant.id)
 
     @app.context_processor
     def inject_tenant():
-        return dict(current_tenant=g.get("current_tenant"), tenants=Tenant.query.all())
+        return dict(
+            current_tenant=g.get("current_tenant"),
+            tenants=list(Tenant.objects.all())
+        )
 
     return app

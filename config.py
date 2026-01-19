@@ -1,6 +1,10 @@
 import os
 
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///inventory.db'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    MONGODB_SETTINGS = {
+        'db': os.environ.get('MONGODB_DB') or 'inventory_db',
+        'host': os.environ.get('MONGODB_HOST') or 'localhost',
+        'port': int(os.environ.get('MONGODB_PORT') or 27017),
+    }

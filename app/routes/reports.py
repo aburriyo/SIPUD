@@ -1,5 +1,5 @@
 from flask import Blueprint, send_file, g
-from app.models import Sale, SaleItem, db, Product, Wastage, InboundOrder
+from app.models import Sale, SaleItem, Product, Wastage, InboundOrder
 import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -10,14 +10,10 @@ bp = Blueprint("reports", __name__, url_prefix="/reports")
 
 @bp.route("/sales/excel")
 def export_sales_excel():
-    tenant_id = g.current_tenant.id if g.current_tenant else None
+    tenant = g.current_tenant
 
     # Query sales for current tenant
-    sales = (
-        Sale.query.filter_by(tenant_id=tenant_id)
-        .order_by(Sale.date_created.desc())
-        .all()
-    )
+    sales = Sale.objects(tenant=tenant).order_by('-date_created')
 
     wb = Workbook()
     ws = wb.active
@@ -43,13 +39,14 @@ def export_sales_excel():
         items_str = []
         total = 0
         for item in sale.items:
-            subtotal = item.quantity * item.unit_price
+            subtotal = item.quantity * float(item.unit_price)
             total += subtotal
-            items_str.append(f"{item.quantity}x {item.product.name}")
+            product_name = item.product.name if item.product else 'N/A'
+            items_str.append(f"{item.quantity}x {product_name}")
 
         ws.append(
             [
-                sale.id,
+                str(sale.id),
                 sale.date_created.strftime("%Y-%m-%d %H:%M"),
                 sale.customer_name,
                 sale.status,
@@ -62,7 +59,7 @@ def export_sales_excel():
     # Auto-adjust column widths (approximation)
     for col in ws.columns:
         max_length = 0
-        column = col[0].column_letter  # Get the column name
+        column = col[0].column_letter
         for cell in col:
             try:
                 if len(str(cell.value)) > max_length:
@@ -90,13 +87,9 @@ def export_sales_excel():
 @bp.route("/warehouse/wastage/excel")
 def export_wastage_excel():
     """Exportar historial de mermas a Excel"""
-    tenant_id = g.current_tenant.id if g.current_tenant else None
+    tenant = g.current_tenant
 
-    wastages = (
-        Wastage.query.filter_by(tenant_id=tenant_id)
-        .order_by(Wastage.date_created.desc())
-        .all()
-    )
+    wastages = Wastage.objects(tenant=tenant).order_by('-date_created')
 
     wb = Workbook()
     ws = wb.active
@@ -118,12 +111,14 @@ def export_wastage_excel():
         cell.alignment = Alignment(horizontal="center")
 
     for wastage in wastages:
+        product_name = wastage.product.name if wastage.product else 'N/A'
+        product_sku = wastage.product.sku if wastage.product else 'N/A'
         ws.append(
             [
-                wastage.id,
+                str(wastage.id),
                 wastage.date_created.strftime("%Y-%m-%d %H:%M"),
-                wastage.product.name,
-                wastage.product.sku,
+                product_name,
+                product_sku,
                 wastage.quantity,
                 wastage.reason,
                 wastage.notes or "-",
@@ -140,7 +135,7 @@ def export_wastage_excel():
                     max_length = len(str(cell.value))
             except:
                 pass
-        adjusted_width = min(50, max_length + 2)  # Max 50
+        adjusted_width = min(50, max_length + 2)
         ws.column_dimensions[column].width = adjusted_width
 
     buffer = io.BytesIO()
@@ -160,9 +155,9 @@ def export_wastage_excel():
 @bp.route("/warehouse/inventory/excel")
 def export_inventory_excel():
     """Exportar inventario completo a Excel"""
-    tenant_id = g.current_tenant.id if g.current_tenant else None
+    tenant = g.current_tenant
 
-    products = Product.query.filter_by(tenant_id=tenant_id).order_by(Product.name).all()
+    products = Product.objects(tenant=tenant).order_by('name')
 
     wb = Workbook()
     ws = wb.active
@@ -200,12 +195,12 @@ def export_inventory_excel():
             product.expiry_date.strftime("%Y-%m-%d") if product.expiry_date else "-"
         )
 
-        row = ws.append(
+        ws.append(
             [
                 product.sku,
                 product.name,
                 product.category or "-",
-                product.base_price,
+                float(product.base_price) if product.base_price else 0,
                 product.total_stock,
                 product.critical_stock,
                 stock_status,
@@ -250,13 +245,9 @@ def export_inventory_excel():
 @bp.route("/warehouse/orders/excel")
 def export_orders_excel():
     """Exportar pedidos a proveedores a Excel"""
-    tenant_id = g.current_tenant.id if g.current_tenant else None
+    tenant = g.current_tenant
 
-    orders = (
-        InboundOrder.query.filter_by(tenant_id=tenant_id)
-        .order_by(InboundOrder.date_received.desc())
-        .all()
-    )
+    orders = InboundOrder.objects(tenant=tenant).order_by('-date_received')
 
     wb = Workbook()
     ws = wb.active
@@ -289,11 +280,11 @@ def export_orders_excel():
     for order in orders:
         ws.append(
             [
-                order.id,
-                order.supplier,
+                str(order.id),
+                order.supplier_name,
                 order.invoice_number,
                 order.status,
-                order.total,
+                float(order.total) if order.total else 0,
                 order.created_at.strftime("%Y-%m-%d %H:%M")
                 if order.created_at
                 else "-",

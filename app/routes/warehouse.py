@@ -5,9 +5,10 @@ Gestiona operaciones diarias del almacén: pedidos, recepciones, mermas
 
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, g
 from flask_login import login_required
-from app.models import db, Product, InboundOrder, Wastage, Lot, Supplier
+from app.models import Product, InboundOrder, Wastage, Lot, Supplier, ProductBundle
 from datetime import datetime, timedelta
-from sqlalchemy import and_
+from bson import ObjectId
+from mongoengine import DoesNotExist
 
 bp = Blueprint("warehouse", __name__, url_prefix="/warehouse")
 
@@ -17,47 +18,31 @@ bp = Blueprint("warehouse", __name__, url_prefix="/warehouse")
 @login_required
 def dashboard():
     """Dashboard de operaciones de almacén"""
+    tenant = g.current_tenant
+
     # Productos próximos a vencer (30 días)
     thirty_days = datetime.now() + timedelta(days=30)
-    expiring_soon = (
-        Product.query.filter(
-            and_(
-                Product.tenant_id == g.current_tenant.id,
-                Product.expiry_date.isnot(None),
-                Product.expiry_date <= thirty_days,
-                Product.expiry_date >= datetime.now(),
-            )
-        )
-        .order_by(Product.expiry_date)
-        .limit(10)
-        .all()
-    )
+    expiring_soon = Product.objects(
+        tenant=tenant,
+        expiry_date__ne=None,
+        expiry_date__lte=thirty_days.date(),
+        expiry_date__gte=datetime.now().date()
+    ).order_by('expiry_date').limit(10)
 
-    # Productos con stock crítico - ordenados por id ya que total_stock es una propiedad
-    low_stock_products = Product.query.filter(
-        Product.tenant_id == g.current_tenant.id
-    ).all()
+    # Productos con stock crítico
+    all_products = Product.objects(tenant=tenant)
 
     # Filtrar y ordenar en Python ya que total_stock es una propiedad calculada
     low_stock = sorted(
-        [p for p in low_stock_products if p.total_stock <= p.critical_stock],
+        [p for p in all_products if p.total_stock <= p.critical_stock],
         key=lambda x: x.total_stock,
     )[:10]
 
     # Pedidos pendientes de recepción
-    pending_orders = (
-        InboundOrder.query.filter(
-            and_(
-                InboundOrder.tenant_id == g.current_tenant.id
-                if hasattr(InboundOrder, "tenant_id")
-                else True,
-                InboundOrder.status == "pending",
-            )
-        )
-        .order_by(InboundOrder.date_received.desc())
-        .limit(10)
-        .all()
-    )
+    pending_orders = InboundOrder.objects(
+        tenant=tenant,
+        status='pending'
+    ).order_by('-date_received').limit(10)
 
     return render_template(
         "warehouse/dashboard.html",
@@ -71,11 +56,8 @@ def dashboard():
 @login_required
 def orders():
     """Gestión de pedidos a proveedores"""
-    orders = (
-        InboundOrder.query.filter_by(tenant_id=g.current_tenant.id)
-        .order_by(InboundOrder.created_at.desc())
-        .all()
-    )
+    tenant = g.current_tenant
+    orders = InboundOrder.objects(tenant=tenant).order_by('-created_at')
     return render_template("warehouse/orders.html", orders=orders)
 
 
@@ -83,16 +65,11 @@ def orders():
 @login_required
 def receiving():
     """Recepción de mercancía"""
-    pending = (
-        InboundOrder.query.filter(
-            and_(
-                InboundOrder.status == "pending",
-                InboundOrder.tenant_id == g.current_tenant.id,
-            )
-        )
-        .order_by(InboundOrder.created_at.desc())
-        .all()
-    )
+    tenant = g.current_tenant
+    pending = InboundOrder.objects(
+        tenant=tenant,
+        status='pending'
+    ).order_by('-created_at')
     return render_template("warehouse/receiving.html", pending_orders=pending)
 
 
@@ -100,11 +77,8 @@ def receiving():
 @login_required
 def wastage():
     """Registro de mermas"""
-    products = (
-        Product.query.filter_by(tenant_id=g.current_tenant.id)
-        .order_by(Product.name)
-        .all()
-    )
+    tenant = g.current_tenant
+    products = Product.objects(tenant=tenant).order_by('name')
     return render_template("warehouse/wastage.html", products=products)
 
 
@@ -112,11 +86,8 @@ def wastage():
 @login_required
 def expiry():
     """Gestión de vencimientos"""
-    products = (
-        Product.query.filter_by(tenant_id=g.current_tenant.id)
-        .order_by(Product.expiry_date.asc())
-        .all()
-    )
+    tenant = g.current_tenant
+    products = Product.objects(tenant=tenant).order_by('expiry_date')
     return render_template(
         "warehouse/expiry.html", products=products, now=datetime.now().date()
     )
@@ -128,22 +99,19 @@ def expiry():
 def get_orders():
     """Obtener todos los pedidos"""
     try:
-        orders = (
-            InboundOrder.query.filter_by(tenant_id=g.current_tenant.id)
-            .order_by(InboundOrder.created_at.desc())
-            .all()
-        )
+        tenant = g.current_tenant
+        orders = InboundOrder.objects(tenant=tenant).order_by('-created_at')
 
         return jsonify(
             {
                 "success": True,
                 "orders": [
                     {
-                        "id": o.id,
-                        "supplier": o.supplier,
+                        "id": str(o.id),
+                        "supplier": o.supplier_name,
                         "invoice_number": o.invoice_number,
                         "status": o.status,
-                        "total": o.total,
+                        "total": float(o.total) if o.total else 0,
                         "notes": o.notes,
                         "date_received": o.date_received.strftime("%d/%m/%Y %H:%M")
                         if o.date_received
@@ -167,16 +135,17 @@ def create_order():
     """Crear nuevo pedido a proveedor"""
     try:
         data = request.get_json()
+        tenant = g.current_tenant
 
         # Validaciones
         if not data:
             return jsonify({"success": False, "error": "No se recibieron datos"}), 400
 
-        supplier = data.get("supplier", "").strip()
+        supplier_name = data.get("supplier", "").strip()
         invoice_number = data.get("invoice_number", "").strip()
         total = data.get("total", 0)
 
-        if not supplier:
+        if not supplier_name:
             return jsonify(
                 {"success": False, "error": "El proveedor es obligatorio"}
             ), 400
@@ -198,47 +167,47 @@ def create_order():
             ), 400
 
         new_order = InboundOrder(
-            supplier=supplier,
+            supplier_name=supplier_name,
             invoice_number=invoice_number,
             notes=data.get("notes", "").strip(),
             status="pending",
             total=total,
             created_at=datetime.now(),
-            tenant_id=g.current_tenant.id
-            if hasattr(g, "current_tenant") and g.current_tenant
-            else None,
+            tenant=tenant,
         )
 
-        db.session.add(new_order)
-        db.session.commit()
+        new_order.save()
 
         return jsonify(
             {
                 "success": True,
                 "message": "Pedido creado exitosamente",
-                "order_id": new_order.id,
+                "order_id": str(new_order.id),
             }
         ), 201
 
     except Exception as e:
-        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@bp.route("/api/orders/<int:order_id>", methods=["PUT"])
+@bp.route("/api/orders/<order_id>", methods=["PUT"])
 @login_required
 def update_order(order_id):
     """Actualizar pedido existente"""
     try:
-        order = InboundOrder.query.get_or_404(order_id)
+        tenant = g.current_tenant
+        try:
+            order = InboundOrder.objects.get(id=ObjectId(order_id))
+        except DoesNotExist:
+            return jsonify({"success": False, "error": "Pedido no encontrado"}), 404
 
-        if order.tenant_id != g.current_tenant.id:
+        if order.tenant != tenant:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
         data = request.get_json()
 
         if "supplier" in data:
-            order.supplier = data["supplier"]
+            order.supplier_name = data["supplier"]
         if "invoice_number" in data:
             order.invoice_number = data["invoice_number"]
         if "notes" in data:
@@ -248,29 +217,32 @@ def update_order(order_id):
         if "status" in data:
             order.status = data["status"]
 
-        db.session.commit()
+        order.save()
 
         return jsonify(
             {"success": True, "message": "Pedido actualizado exitosamente"}
         ), 200
 
     except Exception as e:
-        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@bp.route("/api/orders/<int:order_id>", methods=["DELETE"])
+@bp.route("/api/orders/<order_id>", methods=["DELETE"])
 @login_required
 def delete_order(order_id):
     """Eliminar pedido"""
     try:
-        order = InboundOrder.query.get_or_404(order_id)
+        tenant = g.current_tenant
+        try:
+            order = InboundOrder.objects.get(id=ObjectId(order_id))
+        except DoesNotExist:
+            return jsonify({"success": False, "error": "Pedido no encontrado"}), 404
 
-        if order.tenant_id != g.current_tenant.id:
+        if order.tenant != tenant:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
         # Verificar que no tenga lotes asociados
-        if order.lots and len(order.lots) > 0:
+        if Lot.objects(order=order).count() > 0:
             return jsonify(
                 {
                     "success": False,
@@ -278,15 +250,13 @@ def delete_order(order_id):
                 }
             ), 400
 
-        db.session.delete(order)
-        db.session.commit()
+        order.delete()
 
         return jsonify(
             {"success": True, "message": "Pedido eliminado exitosamente"}
         ), 200
 
     except Exception as e:
-        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -295,27 +265,22 @@ def delete_order(order_id):
 def get_receiving_orders():
     """Obtener pedidos pendientes de recepción"""
     try:
-        orders = (
-            InboundOrder.query.filter(
-                and_(
-                    InboundOrder.status == "pending",
-                    InboundOrder.tenant_id == g.current_tenant.id,
-                )
-            )
-            .order_by(InboundOrder.created_at.desc())
-            .all()
-        )
+        tenant = g.current_tenant
+        orders = InboundOrder.objects(
+            tenant=tenant,
+            status='pending'
+        ).order_by('-created_at')
 
         return jsonify(
             {
                 "success": True,
                 "orders": [
                     {
-                        "id": o.id,
-                        "supplier": o.supplier,
+                        "id": str(o.id),
+                        "supplier": o.supplier_name,
                         "invoice_number": o.invoice_number,
                         "status": o.status,
-                        "total": o.total,
+                        "total": float(o.total) if o.total else 0,
                         "notes": o.notes,
                         "created_at": o.created_at.strftime("%d/%m/%Y %H:%M")
                         if o.created_at
@@ -330,15 +295,19 @@ def get_receiving_orders():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@bp.route("/api/receiving/<int:order_id>", methods=["POST"])
+@bp.route("/api/receiving/<order_id>", methods=["POST"])
 @login_required
 def confirm_receiving(order_id):
     """Confirmar recepción de pedido con validaciones y procesamiento de lotes"""
     try:
-        order = InboundOrder.query.get_or_404(order_id)
+        tenant = g.current_tenant
+        try:
+            order = InboundOrder.objects.get(id=ObjectId(order_id))
+        except DoesNotExist:
+            return jsonify({"success": False, "error": "Pedido no encontrado"}), 404
 
         # Verificar que pertenece al tenant actual
-        if hasattr(order, "tenant_id") and order.tenant_id != g.current_tenant.id:
+        if order.tenant != tenant:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
         # Verificar que el pedido no haya sido ya recibido
@@ -395,8 +364,9 @@ def confirm_receiving(order_id):
                 ), 400
 
             # Validar que el producto existe y pertenece al tenant
-            product = Product.query.get(item["product_id"])
-            if not product:
+            try:
+                product = Product.objects.get(id=ObjectId(item["product_id"]))
+            except DoesNotExist:
                 return jsonify(
                     {
                         "success": False,
@@ -404,7 +374,7 @@ def confirm_receiving(order_id):
                     }
                 ), 404
 
-            if product.tenant_id != g.current_tenant.id:
+            if product.tenant != tenant:
                 return jsonify(
                     {
                         "success": False,
@@ -415,7 +385,7 @@ def confirm_receiving(order_id):
             # Validar código de lote (opcional pero debe ser string si se proporciona)
             lot_code = str(item.get("lot_code", "")).strip()
             if not lot_code:
-                lot_code = f"LOT-{order_id}-{product.id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                lot_code = f"LOT-{str(order.id)[-6:]}-{str(product.id)[-6:]}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
             # Validar fecha de vencimiento (opcional)
             expiry_date = None
@@ -441,27 +411,24 @@ def confirm_receiving(order_id):
                     ), 400
 
             # Crear lote de inventario
-            from app.models import Lot
-
+            # FIXED: Using 'order' instead of 'inbound_order_id' and adding tenant
             lot = Lot(
-                product_id=product.id,
-                order_id=order.id,
-                tenant_id=g.current_tenant.id,
+                product=product,
+                order=order,
+                tenant=tenant,  # FIXED: Added tenant_id
                 lot_code=lot_code,
                 quantity_initial=quantity,
                 quantity_current=quantity,
                 expiry_date=expiry_date,
             )
-            db.session.add(lot)
+            lot.save()
 
-            # Actualizar stock del producto
-            product.stock += quantity
+            # FIXED: Removed product.stock += quantity (stock is calculated from Lots)
 
         # Actualizar estado del pedido
         order.status = "received"
         order.date_received = datetime.now()
-
-        db.session.commit()
+        order.save()
 
         return jsonify(
             {
@@ -471,7 +438,6 @@ def confirm_receiving(order_id):
         ), 200
 
     except Exception as e:
-        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -481,6 +447,7 @@ def register_wastage():
     """Registrar merma de producto"""
     try:
         data = request.get_json()
+        tenant = g.current_tenant
 
         # Validaciones
         if not data:
@@ -515,9 +482,12 @@ def register_wastage():
             ), 400
 
         # Validar producto
-        product = Product.query.get_or_404(product_id)
+        try:
+            product = Product.objects.get(id=ObjectId(product_id))
+        except DoesNotExist:
+            return jsonify({"success": False, "error": "Producto no encontrado"}), 404
 
-        if product.tenant_id != g.current_tenant.id:
+        if product.tenant != tenant:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
         # Verificar stock disponible
@@ -530,12 +500,12 @@ def register_wastage():
             ), 400
 
         # Registrar merma
-        wastage = Wastage(
-            product_id=product_id,
+        wastage_record = Wastage(
+            product=product,
             quantity=quantity,
             reason=reason,
             notes=data.get("notes", "").strip(),
-            tenant_id=g.current_tenant.id,
+            tenant=tenant,
         )
 
         # Reducir stock (FIFO - del lote más antiguo)
@@ -559,20 +529,19 @@ def register_wastage():
             deduct = min(lot.quantity_current, remaining_to_deduct)
             lot.quantity_current -= deduct
             remaining_to_deduct -= deduct
+            lot.save()
 
-        db.session.add(wastage)
-        db.session.commit()
+        wastage_record.save()
 
         return jsonify(
             {
                 "success": True,
                 "message": "Merma registrada exitosamente",
-                "wastage_id": wastage.id,
+                "wastage_id": str(wastage_record.id),
             }
         ), 201
 
     except Exception as e:
-        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -581,20 +550,17 @@ def register_wastage():
 def wastage_history():
     """Obtener historial de mermas"""
     try:
-        wastages = (
-            Wastage.query.filter_by(tenant_id=g.current_tenant.id)
-            .order_by(Wastage.date_created.desc())
-            .all()
-        )
+        tenant = g.current_tenant
+        wastages = Wastage.objects(tenant=tenant).order_by('-date_created')
 
         return jsonify(
             {
                 "success": True,
                 "wastages": [
                     {
-                        "id": w.id,
-                        "product_id": w.product_id,
-                        "product_name": w.product.name,
+                        "id": str(w.id),
+                        "product_id": str(w.product.id) if w.product else None,
+                        "product_name": w.product.name if w.product else 'N/A',
                         "quantity": w.quantity,
                         "reason": w.reason,
                         "notes": w.notes,
@@ -609,23 +575,25 @@ def wastage_history():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@bp.route("/api/wastage/<int:wastage_id>", methods=["DELETE"])
+@bp.route("/api/wastage/<wastage_id>", methods=["DELETE"])
 @login_required
 def delete_wastage(wastage_id):
     """Eliminar registro de merma (NO REVIERTE STOCK)"""
     try:
-        wastage = Wastage.query.get_or_404(wastage_id)
+        tenant = g.current_tenant
+        try:
+            wastage_record = Wastage.objects.get(id=ObjectId(wastage_id))
+        except DoesNotExist:
+            return jsonify({"success": False, "error": "Merma no encontrada"}), 404
 
-        if wastage.tenant_id != g.current_tenant.id:
+        if wastage_record.tenant != tenant:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
-        db.session.delete(wastage)
-        db.session.commit()
+        wastage_record.delete()
 
         return jsonify({"success": True, "message": "Registro de merma eliminado"}), 200
 
     except Exception as e:
-        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -634,12 +602,11 @@ def delete_wastage(wastage_id):
 def get_expiry_products():
     """Obtener productos con fechas de vencimiento"""
     try:
-        products = (
-            Product.query.filter_by(tenant_id=g.current_tenant.id)
-            .filter(Product.expiry_date.isnot(None))
-            .order_by(Product.expiry_date.asc())
-            .all()
-        )
+        tenant = g.current_tenant
+        products = Product.objects(
+            tenant=tenant,
+            expiry_date__ne=None
+        ).order_by('expiry_date')
 
         now = datetime.now().date()
 
@@ -648,7 +615,7 @@ def get_expiry_products():
                 "success": True,
                 "products": [
                     {
-                        "id": p.id,
+                        "id": str(p.id),
                         "name": p.name,
                         "sku": p.sku,
                         "expiry_date": p.expiry_date.strftime("%Y-%m-%d")
@@ -675,19 +642,23 @@ def get_expiry_products():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@bp.route("/api/expiry/<int:product_id>", methods=["PUT"])
+@bp.route("/api/expiry/<product_id>", methods=["PUT"])
 @login_required
 def update_expiry(product_id):
     """Actualizar fecha de vencimiento de producto"""
     try:
         data = request.get_json()
+        tenant = g.current_tenant
 
         if not data:
             return jsonify({"success": False, "error": "No se recibieron datos"}), 400
 
-        product = Product.query.get_or_404(product_id)
+        try:
+            product = Product.objects.get(id=ObjectId(product_id))
+        except DoesNotExist:
+            return jsonify({"success": False, "error": "Producto no encontrado"}), 404
 
-        if product.tenant_id != g.current_tenant.id:
+        if product.tenant != tenant:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
         # Validar y actualizar fecha de vencimiento
@@ -717,14 +688,13 @@ def update_expiry(product_id):
         else:
             product.expiry_date = None
 
-        db.session.commit()
+        product.save()
 
         return jsonify(
             {"success": True, "message": "Fecha de vencimiento actualizada"}
         ), 200
 
     except Exception as e:
-        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -733,19 +703,18 @@ def update_expiry(product_id):
 def get_alerts():
     """Obtener alertas de vencimientos próximos y stock crítico"""
     try:
+        tenant = g.current_tenant
         alerts = []
         now = datetime.now().date()
 
         # Alertas de vencimiento (próximos 30 días)
         thirty_days = now + timedelta(days=30)
-        expiring_products = (
-            Product.query.filter_by(tenant_id=g.current_tenant.id)
-            .filter(Product.expiry_date.isnot(None))
-            .filter(Product.expiry_date <= thirty_days)
-            .filter(Product.expiry_date >= now)
-            .order_by(Product.expiry_date.asc())
-            .all()
-        )
+        expiring_products = Product.objects(
+            tenant=tenant,
+            expiry_date__ne=None,
+            expiry_date__lte=thirty_days,
+            expiry_date__gte=now
+        ).order_by('expiry_date')
 
         for product in expiring_products:
             days_left = (product.expiry_date - now).days
@@ -759,7 +728,7 @@ def get_alerts():
                 {
                     "type": "expiry",
                     "severity": severity,
-                    "product_id": product.id,
+                    "product_id": str(product.id),
                     "product_name": product.name,
                     "message": f"El producto '{product.name}' vence en {days_left} días",
                     "days_left": days_left,
@@ -769,14 +738,14 @@ def get_alerts():
             )
 
         # Alertas de stock crítico
-        all_products = Product.query.filter_by(tenant_id=g.current_tenant.id).all()
+        all_products = Product.objects(tenant=tenant)
         for product in all_products:
             if product.total_stock <= product.critical_stock:
                 alerts.append(
                     {
                         "type": "low_stock",
                         "severity": "danger" if product.total_stock == 0 else "warning",
-                        "product_id": product.id,
+                        "product_id": str(product.id),
                         "product_name": product.name,
                         "message": f"Stock bajo: '{product.name}' ({product.total_stock} unidades)",
                         "current_stock": product.total_stock,
@@ -803,6 +772,7 @@ def assemble_box():
     """
     try:
         data = request.get_json()
+        tenant = g.current_tenant
         bundle_id = data.get("bundle_id")
         quantity = int(data.get("quantity", 0))
 
@@ -812,8 +782,12 @@ def assemble_box():
             ), 400
 
         # 1. Verificar producto bundle
-        bundle_product = Product.query.get_or_404(bundle_id)
-        if bundle_product.tenant_id != g.current_tenant.id:
+        try:
+            bundle_product = Product.objects.get(id=ObjectId(bundle_id))
+        except DoesNotExist:
+            return jsonify({"success": False, "error": "Producto no encontrado"}), 404
+
+        if bundle_product.tenant != tenant:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
         if not bundle_product.is_bundle:
@@ -825,18 +799,16 @@ def assemble_box():
             ), 400
 
         # 2. Verificar componentes y stock
-        from app.models import ProductBundle, Lot
+        components = ProductBundle.objects(bundle=bundle_product)
 
-        components = ProductBundle.query.filter_by(bundle_id=bundle_product.id).all()
-
-        if not components:
+        if components.count() == 0:
             return jsonify(
                 {"success": False, "error": "Este kit no tiene componentes definidos"}
             ), 400
 
         # Pre-chequeo de stock
         for comp_rel in components:
-            comp_product = Product.query.get(comp_rel.component_id)
+            comp_product = comp_rel.component
             needed_qty = comp_rel.quantity * quantity
 
             if comp_product.total_stock < needed_qty:
@@ -849,7 +821,7 @@ def assemble_box():
 
         # 3. Descontar stock de componentes (FIFO)
         for comp_rel in components:
-            comp_product = Product.query.get(comp_rel.component_id)
+            comp_product = comp_rel.component
             total_needed = comp_rel.quantity * quantity
             remaining_to_deduct = total_needed
 
@@ -866,10 +838,9 @@ def assemble_box():
                 deduct = min(lot.quantity_current, remaining_to_deduct)
                 lot.quantity_current -= deduct
                 remaining_to_deduct -= deduct
-                db.session.add(lot)  # Mark for update
+                lot.save()
 
             if remaining_to_deduct > 0:
-                # Esto no debería pasar dado el pre-chequeo, pero por seguridad
                 raise Exception(
                     f"Error concurrente de inventario en {comp_product.name}"
                 )
@@ -877,22 +848,21 @@ def assemble_box():
         # 4. Crear Lote para el Bundle
         # Buscamos o creamos una Orden de Entrada "interna" para asignar el lote
         internal_supplier_name = "Interno: Armado"
-        today_assembly_order = InboundOrder.query.filter(
-            InboundOrder.tenant_id == g.current_tenant.id,
-            InboundOrder.supplier == internal_supplier_name,
-            db.func.date(InboundOrder.created_at) == datetime.utcnow().date(),
+        today_assembly_order = InboundOrder.objects(
+            tenant=tenant,
+            supplier_name=internal_supplier_name,
+            created_at__gte=datetime.combine(datetime.utcnow().date(), datetime.min.time()),
+            created_at__lt=datetime.combine(datetime.utcnow().date() + timedelta(days=1), datetime.min.time())
         ).first()
 
         if not today_assembly_order:
             # Buscar o crear proveedor interno
-            from app.models import Supplier
-
-            internal_supplier = Supplier.query.filter_by(
-                rut="99999999-9", tenant_id=g.current_tenant.id
+            internal_supplier = Supplier.objects(
+                rut="99999999-9", tenant=tenant
             ).first()
             if not internal_supplier:
-                internal_supplier = Supplier.query.filter_by(
-                    name="Interno", tenant_id=g.current_tenant.id
+                internal_supplier = Supplier.objects(
+                    name="Interno", tenant=tenant
                 ).first()
 
             if not internal_supplier:
@@ -900,35 +870,33 @@ def assemble_box():
                     name="Interno",
                     rut="99999999-9",
                     contact_info="Sistema",
-                    tenant_id=g.current_tenant.id,
+                    tenant=tenant,
                 )
-                db.session.add(internal_supplier)
-                db.session.flush()
+                internal_supplier.save()
 
             today_assembly_order = InboundOrder(
-                supplier_id=internal_supplier.id,
-                supplier=internal_supplier_name,
+                supplier=internal_supplier,
+                supplier_name=internal_supplier_name,
                 invoice_number=f"ARM-{datetime.utcnow().strftime('%Y%m%d-%H%M')}",
-                status="received",  # Ya "recibido"
+                status="received",
                 date_received=datetime.utcnow(),
                 notes="Generado automáticamente por proceso de armado de cajas",
-                tenant_id=g.current_tenant.id,
+                tenant=tenant,
             )
-            db.session.add(today_assembly_order)
-            db.session.flush()  # Para obtener ID
+            today_assembly_order.save()
 
+        # FIXED: Using 'order' instead of 'inbound_order_id' and adding tenant
         new_lot = Lot(
-            product_id=bundle_product.id,
-            inbound_order_id=today_assembly_order.id,
+            product=bundle_product,
+            order=today_assembly_order,
+            tenant=tenant,  # FIXED: Added tenant
             lot_code=f"KIT-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
             quantity_initial=quantity,
             quantity_current=quantity,
-            expiry_date=None,  # O calcular basado en el componente que vence primero? Por ahora None.
+            expiry_date=None,
             created_at=datetime.utcnow(),
         )
-        db.session.add(new_lot)
-
-        db.session.commit()
+        new_lot.save()
 
         return jsonify(
             {
@@ -938,5 +906,4 @@ def assemble_box():
         ), 201
 
     except Exception as e:
-        db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
