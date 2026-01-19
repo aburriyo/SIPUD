@@ -159,12 +159,41 @@ def create_order():
     try:
         data = request.get_json()
 
+        # Validaciones
+        if not data:
+            return jsonify({"success": False, "error": "No se recibieron datos"}), 400
+
+        supplier = data.get("supplier", "").strip()
+        invoice_number = data.get("invoice_number", "").strip()
+        total = data.get("total", 0)
+
+        if not supplier:
+            return jsonify(
+                {"success": False, "error": "El proveedor es obligatorio"}
+            ), 400
+
+        if not invoice_number:
+            return jsonify(
+                {"success": False, "error": "El número de factura es obligatorio"}
+            ), 400
+
+        try:
+            total = float(total)
+            if total < 0:
+                return jsonify(
+                    {"success": False, "error": "El total no puede ser negativo"}
+                ), 400
+        except (ValueError, TypeError):
+            return jsonify(
+                {"success": False, "error": "El total debe ser un número válido"}
+            ), 400
+
         new_order = InboundOrder(
-            supplier=data.get("supplier", ""),
-            invoice_number=data.get("invoice_number", ""),
-            notes=data.get("notes", ""),
+            supplier=supplier,
+            invoice_number=invoice_number,
+            notes=data.get("notes", "").strip(),
             status="pending",
-            total=data.get("total", 0),
+            total=total,
             created_at=datetime.now(),
             tenant_id=g.current_tenant.id
             if hasattr(g, "current_tenant") and g.current_tenant
@@ -285,8 +314,37 @@ def register_wastage():
     try:
         data = request.get_json()
 
+        # Validaciones
+        if not data:
+            return jsonify({"success": False, "error": "No se recibieron datos"}), 400
+
         product_id = data.get("product_id")
-        quantity = int(data.get("quantity", 0))
+        quantity_str = data.get("quantity", 0)
+        reason = data.get("reason", "").strip()
+
+        if not product_id:
+            return jsonify(
+                {"success": False, "error": "Debe seleccionar un producto"}
+            ), 400
+
+        try:
+            quantity = int(quantity_str)
+            if quantity <= 0:
+                return jsonify(
+                    {"success": False, "error": "La cantidad debe ser mayor a 0"}
+                ), 400
+        except (ValueError, TypeError):
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "La cantidad debe ser un número entero válido",
+                }
+            ), 400
+
+        if not reason or reason not in ["vencido", "dañado", "perdido", "robo", "otro"]:
+            return jsonify(
+                {"success": False, "error": "Debe especificar una razón válida"}
+            ), 400
 
         # Validar producto
         product = Product.query.get_or_404(product_id)
@@ -299,7 +357,7 @@ def register_wastage():
             return jsonify(
                 {
                     "success": False,
-                    "error": f"Stock insuficiente. Disponible: {product.total_stock}",
+                    "error": f"Stock insuficiente. Disponible: {product.total_stock}, solicitado: {quantity}",
                 }
             ), 400
 
@@ -307,8 +365,8 @@ def register_wastage():
         wastage = Wastage(
             product_id=product_id,
             quantity=quantity,
-            reason=data.get("reason", "otro"),
-            notes=data.get("notes", ""),
+            reason=reason,
+            notes=data.get("notes", "").strip(),
             tenant_id=g.current_tenant.id,
         )
 
@@ -318,6 +376,14 @@ def register_wastage():
             [l for l in product.lots if l.quantity_current > 0],
             key=lambda x: x.created_at,
         )
+
+        if not available_lots:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "No hay lotes disponibles para este producto",
+                }
+            ), 400
 
         for lot in available_lots:
             if remaining_to_deduct <= 0:
@@ -447,15 +513,39 @@ def update_expiry(product_id):
     """Actualizar fecha de vencimiento de producto"""
     try:
         data = request.get_json()
+
+        if not data:
+            return jsonify({"success": False, "error": "No se recibieron datos"}), 400
+
         product = Product.query.get_or_404(product_id)
 
         if product.tenant_id != g.current_tenant.id:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
-        # Actualizar fecha de vencimiento
-        expiry_str = data.get("expiry_date")
+        # Validar y actualizar fecha de vencimiento
+        expiry_str = data.get("expiry_date", "").strip()
+
         if expiry_str:
-            product.expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
+            try:
+                expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
+
+                # Validar que la fecha no esté en el pasado
+                if expiry_date < datetime.now().date():
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": "La fecha de vencimiento no puede estar en el pasado",
+                        }
+                    ), 400
+
+                product.expiry_date = expiry_date
+            except ValueError:
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": "Formato de fecha inválido. Use YYYY-MM-DD",
+                    }
+                ), 400
         else:
             product.expiry_date = None
 
@@ -467,6 +557,72 @@ def update_expiry(product_id):
 
     except Exception as e:
         db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route("/api/alerts", methods=["GET"])
+@login_required
+def get_alerts():
+    """Obtener alertas de vencimientos próximos y stock crítico"""
+    try:
+        alerts = []
+        now = datetime.now().date()
+
+        # Alertas de vencimiento (próximos 30 días)
+        thirty_days = now + timedelta(days=30)
+        expiring_products = (
+            Product.query.filter_by(tenant_id=g.current_tenant.id)
+            .filter(Product.expiry_date.isnot(None))
+            .filter(Product.expiry_date <= thirty_days)
+            .filter(Product.expiry_date >= now)
+            .order_by(Product.expiry_date.asc())
+            .all()
+        )
+
+        for product in expiring_products:
+            days_left = (product.expiry_date - now).days
+            severity = (
+                "danger"
+                if days_left <= 7
+                else ("warning" if days_left <= 14 else "info")
+            )
+
+            alerts.append(
+                {
+                    "type": "expiry",
+                    "severity": severity,
+                    "product_id": product.id,
+                    "product_name": product.name,
+                    "message": f"El producto '{product.name}' vence en {days_left} días",
+                    "days_left": days_left,
+                    "expiry_date": product.expiry_date.strftime("%d/%m/%Y"),
+                    "stock": product.total_stock,
+                }
+            )
+
+        # Alertas de stock crítico
+        all_products = Product.query.filter_by(tenant_id=g.current_tenant.id).all()
+        for product in all_products:
+            if product.total_stock <= product.critical_stock:
+                alerts.append(
+                    {
+                        "type": "low_stock",
+                        "severity": "danger" if product.total_stock == 0 else "warning",
+                        "product_id": product.id,
+                        "product_name": product.name,
+                        "message": f"Stock bajo: '{product.name}' ({product.total_stock} unidades)",
+                        "current_stock": product.total_stock,
+                        "critical_stock": product.critical_stock,
+                    }
+                )
+
+        # Ordenar por severidad (danger primero)
+        severity_order = {"danger": 0, "warning": 1, "info": 2}
+        alerts.sort(key=lambda x: severity_order.get(x["severity"], 3))
+
+        return jsonify({"success": True, "alerts": alerts, "count": len(alerts)}), 200
+
+    except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 

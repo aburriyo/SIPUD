@@ -129,4 +129,227 @@ flask db migrate -m "Descripción"
 flask db upgrade
 \end{verbatim}
 
+\section{Arquitectura del Sistema Implementado}
+
+\subsection{Arquitectura Multi-Tenant}
+Se ha implementado un sistema de multi-tenancy que permite que múltiples organizaciones utilicen la misma aplicación de manera aislada:
+
+\begin{itemize}
+    \item \textbf{Modelo Tenant:} Cada organización tiene su propia entidad con slug único
+    \item \textbf{Aislamiento de Datos:} Todos los modelos principales incluyen tenant\_id como clave foránea
+    \item \textbf{Context Processor:} Middleware que inyecta el tenant actual (g.current\_tenant) en todas las peticiones
+    \item \textbf{Filtrado Automático:} Las consultas se filtran automáticamente por tenant\_id
+\end{itemize}
+
+\subsection{Módulos Funcionales}
+
+\subsubsection{4.1. Módulo de Almacén (Warehouse)}
+El módulo de almacén es el núcleo del sistema de gestión de inventario, dividido en 4 submódulos:
+
+\paragraph{Pedidos a Proveedores (Supplier Orders)}
+\begin{itemize}
+    \item Archivo: \texttt{app/templates/warehouse/orders.html}
+    \item Funcionalidad: Gestión completa de órdenes de compra
+    \item Campos: Proveedor, Número de Factura, Total, Notas, Estado
+    \item API: \texttt{/warehouse/api/orders} (GET, POST, PUT, DELETE)
+    \item Tecnología: DataTables + Alpine.js
+\end{itemize}
+
+\paragraph{Recepción de Mercancía (Goods Receipt)}
+\begin{itemize}
+    \item Archivo: \texttt{app/templates/warehouse/receiving.html}
+    \item Funcionalidad: Registro de entradas con creación de lotes
+    \item Campos por producto: product\_id, quantity, lot\_code, expiry\_date
+    \item Proceso: Seleccionar orden pendiente → Agregar productos → Confirmar recepción
+    \item Efecto: Actualiza stock total y crea registros en tabla Lot
+\end{itemize}
+
+\paragraph{Registro de Mermas (Wastage Registry)}
+\begin{itemize}
+    \item Archivo: \texttt{app/templates/warehouse/wastage.html}
+    \item Funcionalidad: Trazabilidad de pérdidas de inventario
+    \item Razones: Vencido, Dañado, Perdido, Robo, Otro
+    \item Lógica: Descuento automático usando FIFO (First In, First Out)
+    \item API: \texttt{/warehouse/api/wastage} (POST para registrar, DELETE para eliminar)
+\end{itemize}
+
+\paragraph{Gestión de Vencimientos (Expiry Management)}
+\begin{itemize}
+    \item Archivo: \texttt{app/templates/warehouse/expiry.html}
+    \item Funcionalidad: Control de fechas de caducidad
+    \item Alertas visuales: Rojo (≤7 días), Amarillo (8-30 días), Verde (>30 días)
+    \item Actualización masiva de fechas de vencimiento
+    \item DataTables con cálculo automático de días restantes
+\end{itemize}
+
+\subsubsection{4.2. Módulo de Ventas (Sales)}
+\begin{itemize}
+    \item Archivo: \texttt{app/templates/sales.html}
+    \item Creación de ventas con múltiples productos
+    \item Buscador inteligente de productos (móvil y escritorio)
+    \item Campos: Cliente, Dirección, Método de Pago, Estado de Entrega
+    \item Estados: pending, assigned, in\_transit, delivered, cancelled
+    \item Confirmación de pago (checkbox payment\_confirmed)
+    \item Exportación a Excel (\texttt{/reports/sales/excel})
+\end{itemize}
+
+\subsubsection{4.3. Módulo de Productos}
+\begin{itemize}
+    \item Archivo: \texttt{app/templates/products.html}
+    \item Categorización con emojis visuales (Cajas, Conservas, Granos, etc.)
+    \item Sistema de Bundles/Kitting para productos compuestos
+    \item Campos: SKU, Nombre, Descripción, Categoría, Precio Base, Stock Crítico
+    \item Modal con validación para bundles (tabla ProductBundle)
+    \item CRUD completo con DataTables
+\end{itemize}
+
+\subsubsection{4.4. Módulo de Logística y Flota}
+\begin{itemize}
+    \item Archivo: \texttt{app/templates/logistics.html}, \texttt{app/templates/fleet.html}
+    \item Gestión de vehículos (Truck model)
+    \item Campos: Patente, Modelo, Capacidad (kg), Estado
+    \item Geolocalización (current\_lat, current\_lng)
+    \item Mantenimientos programados (VehicleMaintenance)
+    \item Rutas de despacho (LogisticsRoute)
+\end{itemize}
+
+\subsection{Stack Tecnológico Frontend}
+
+\subsubsection{Tailwind CSS}
+Framework CSS utility-first que permite diseño rápido y responsivo:
+\begin{itemize}
+    \item Clases utilitarias: \texttt{px-4, py-2, bg-primary-600, rounded-lg}
+    \item Responsividad: Prefijos \texttt{sm:, md:, lg:, xl:}
+    \item Customización en \texttt{tailwind.config.js}
+\end{itemize}
+
+\subsubsection{Alpine.js 2.8.2}
+Framework JavaScript reactivo y minimalista:
+\begin{itemize}
+    \item Directivas: \texttt{x-data, x-show, x-model, x-on (@click)}
+    \item Estado local sin necesidad de compilación
+    \item Ideal para interacciones moderadas
+\end{itemize}
+
+\subsubsection{DataTables}
+Plugin jQuery para tablas avanzadas:
+\begin{itemize}
+    \item Búsqueda en tiempo real
+    \item Ordenamiento por columnas
+    \item Paginación configurable
+    \item Responsive (oculta columnas en móvil)
+    \item Localización en español
+\end{itemize}
+
+\subsection{Flujos Críticos del Sistema}
+
+\subsubsection{Flujo de Recepción de Mercancía}
+\begin{enumerate}
+    \item Usuario navega a "Recepción de Mercancía"
+    \item Sistema muestra órdenes con status='pending'
+    \item Usuario selecciona orden y agrega productos
+    \item Para cada producto: quantity, lot\_code, expiry\_date
+    \item Al confirmar: 
+    \begin{itemize}
+        \item Se crean registros en tabla Lot
+        \item Se actualiza Product.total\_stock
+        \item Estado de InboundOrder cambia a 'received'
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Flujo de Registro de Merma}
+\begin{enumerate}
+    \item Usuario selecciona producto afectado
+    \item Ingresa cantidad y razón de pérdida
+    \item Sistema aplica lógica FIFO:
+    \begin{itemize}
+        \item Busca lotes del producto ordenados por fecha de creación
+        \item Descuenta cantidad de lotes más antiguos primero
+        \item Actualiza Product.total\_stock
+    \end{itemize}
+    \item Se crea registro en tabla Wastage para auditoría
+\end{enumerate}
+
+\subsubsection{Flujo de Creación de Venta}
+\begin{enumerate}
+    \item Usuario hace click en "Nueva Venta"
+    \item Completa datos del cliente
+    \item Agrega productos al carrito (buscador o dropdown)
+    \item Para cada producto: quantity (subtotal calculado automáticamente)
+    \item Marca confirmación de pago y estado de entrega
+    \item Al guardar:
+    \begin{itemize}
+        \item Se crea registro en Sale
+        \item Se crean registros en SaleItem
+        \item Stock se descuenta (si se implementa lógica de descuento)
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Patrones de Diseño Utilizados}
+
+\subsubsection{Blueprint Pattern}
+Los módulos se organizan como Blueprints de Flask:
+\begin{itemize}
+    \item \texttt{auth}: Autenticación y login
+    \item \texttt{main}: Rutas principales (dashboard, products, sales)
+    \item \texttt{warehouse}: Submódulo de almacén
+    \item \texttt{logistics}: Gestión de flota
+    \item \texttt{reports}: Exportaciones y reportes
+\end{itemize}
+
+\subsubsection{Repository Pattern}
+Aunque no se usa un Repository explícito, SQLAlchemy actúa como abstracción de datos:
+\begin{verbatim}
+Product.query.filter_by(tenant_id=g.current_tenant.id).all()
+\end{verbatim}
+
+\subsubsection{ViewModel Pattern}
+Los templates reciben datos pre-procesados desde las rutas:
+\begin{verbatim}
+@bp.route('/products')
+def products():
+    products = Product.query.filter_by(
+        tenant_id=g.current_tenant.id
+    ).all()
+    return render_template('products.html', 
+                          products=products)
+\end{verbatim}
+
+\section{Recomendaciones de Deployment}
+
+\subsection{Variables de Entorno}
+Para producción, configurar en el servidor:
+\begin{verbatim}
+SECRET_KEY=clave-super-secreta-generada-aleatoriamente
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+FLASK_ENV=production
+\end{verbatim}
+
+\subsection{Migraciones en Producción}
+Ejecutar migraciones antes de cada deploy:
+\begin{verbatim}
+flask db upgrade
+\end{verbatim}
+
+\subsection{Servidor WSGI}
+Usar Gunicorn para servir la aplicación:
+\begin{verbatim}
+gunicorn -w 4 -b 0.0.0.0:5000 run:app
+\end{verbatim}
+
+\subsection{Backup de Base de Datos}
+Configurar backups automáticos diarios de \texttt{instance/inventory.db} (SQLite) o de la base PostgreSQL en producción.
+
+\section{Próximos Pasos de Desarrollo}
+
+\begin{enumerate}
+    \item \textbf{Dashboard con Gráficas:} Implementar Chart.js para visualización de métricas
+    \item \textbf{Reportes PDF:} Agregar generación de PDFs con ReportLab o WeasyPrint
+    \item \textbf{Notificaciones:} Sistema de alertas por email/SMS para vencimientos próximos
+    \item \textbf{Escáner de Códigos de Barras:} Integración con QuaggaJS para lectura de barcodes
+    \item \textbf{API REST Completa:} Documentar API con Swagger/OpenAPI
+    \item \textbf{Tests Automatizados:} Ampliar cobertura de tests unitarios y de integración
+    \item \textbf{CI/CD:} Configurar GitHub Actions para deploy automático
+\end{enumerate}
+
 \end{document}

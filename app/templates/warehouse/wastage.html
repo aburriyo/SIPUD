@@ -3,21 +3,34 @@
 {% block title %}Registro de Mermas{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-    <h1 class="text-3xl font-bold text-slate-900">Registro de Mermas</h1>
-    <p class="text-slate-600 mt-1">Documenta pérdidas y productos dañados</p>
+<div class="mb-4 sm:mb-6">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Registro de Mermas</h1>
+            <p class="text-sm text-slate-600 mt-1">Documenta pérdidas y productos dañados</p>
+        </div>
+        <a href="{{ url_for('reports.export_wastage_excel') }}"
+            class="inline-flex items-center justify-center px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
+            <svg class="w-4 h-4 sm:mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            <span class="hidden sm:inline">Exportar a Excel</span>
+            <span class="sm:hidden ml-2">Exportar</span>
+        </a>
+    </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6" x-data="wastageManager()">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6" x-data="wastageManager()">
     <!-- Formulario de Registro -->
-    <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 class="text-lg font-bold text-slate-900 mb-4">Registrar Merma</h2>
+    <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+        <h2 class="text-base sm:text-lg font-bold text-slate-900 mb-4">Registrar Merma</h2>
         
         <form @submit.prevent="registerWastage" class="space-y-4">
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Producto</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Producto *</label>
                 <select x-model="wastageForm.product_id" required
-                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500">
+                    class="w-full px-3 sm:px-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500">
                     <option value="">Seleccionar producto...</option>
                     {% for product in products %}
                     <option value="{{ product.id }}">{{ product.name }} ({{ product.total_stock }} disponibles)</option>
@@ -26,21 +39,21 @@
             </div>
             
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Cantidad</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Cantidad *</label>
                 <input type="number" x-model.number="wastageForm.quantity" min="1" required
-                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    class="w-full px-3 sm:px-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                     placeholder="Unidades perdidas">
             </div>
             
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Motivo</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Motivo *</label>
                 <select x-model="wastageForm.reason" required
-                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500">
+                    class="w-full px-3 sm:px-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500">
                     <option value="">Seleccionar motivo...</option>
                     <option value="vencido">Producto vencido</option>
                     <option value="dañado">Producto dañado</option>
                     <option value="perdido">Producto perdido</option>
-                    <option value="rotura">Rotura en transporte</option>
+                    <option value="robo">Robo</option>
                     <option value="otro">Otro</option>
                 </select>
             </div>
@@ -48,22 +61,23 @@
             <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">Observaciones</label>
                 <textarea x-model="wastageForm.notes" rows="3"
-                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    class="w-full px-3 sm:px-4 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                     placeholder="Detalles adicionales..."></textarea>
             </div>
             
             <button type="submit"
-                class="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium">
+                class="w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors">
                 Registrar Merma
             </button>
         </form>
     </div>
     
     <!-- Historial de Mermas -->
-    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 class="text-lg font-bold text-slate-900 mb-4">Historial de Mermas</h2>
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-6">
+        <h2 class="text-base sm:text-lg font-bold text-slate-900 mb-4">Historial de Mermas</h2>
         
-        <div class="overflow-x-auto">
+        <!-- Desktop Table -->
+        <div class="hidden sm:block overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
@@ -88,12 +102,38 @@
                         </tr>
                     </template>
                     <tr x-show="wastageHistory.length === 0">
-                        <td colspan="5" class="px-4 py-8 text-center text-slate-500">
+                        <td colspan="5" class="px-4 py-8 text-center text-slate-500 text-sm">
                             No hay mermas registradas
                         </td>
                     </tr>
                 </tbody>
             </table>
+        </div>
+        
+        <!-- Mobile Cards -->
+        <div class="sm:hidden space-y-3">
+            <template x-for="wastage in wastageHistory" :key="wastage.id">
+                <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1">
+                            <p class="font-semibold text-slate-900 text-sm" x-text="wastage.product_name"></p>
+                            <p class="text-xs text-slate-600 mt-1" x-text="wastage.date"></p>
+                        </div>
+                        <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium ml-2" 
+                            x-text="wastage.reason"></span>
+                    </div>
+                    <div class="flex items-center justify-between mt-3 pt-3 border-t border-slate-200">
+                        <span class="text-xs text-slate-600">Cantidad perdida:</span>
+                        <span class="font-bold text-red-600 text-sm" x-text="wastage.quantity + ' unidades'"></span>
+                    </div>
+                    <div class="mt-2" x-show="wastage.notes">
+                        <p class="text-xs text-slate-600"><span class="font-medium">Notas:</span> <span x-text="wastage.notes"></span></p>
+                    </div>
+                </div>
+            </template>
+            <div x-show="wastageHistory.length === 0" class="text-center py-8 text-slate-500 text-sm">
+                No hay mermas registradas
+            </div>
         </div>
     </div>
 </div>

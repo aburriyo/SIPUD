@@ -5,16 +5,27 @@
 {% block content %}
 <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4" x-data="ordersPage()">
     <div>
-        <h1 class="text-3xl font-bold text-slate-900">Pedidos a Proveedores</h1>
-        <p class="text-slate-600 mt-1">Registra y gestiona órdenes de compra</p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-slate-900">Pedidos a Proveedores</h1>
+        <p class="text-sm text-slate-600 mt-1">Registra y gestiona órdenes de compra</p>
     </div>
-    <button @click="openCreateModal()"
-        class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-        </svg>
-        Nuevo Pedido
-    </button>
+    <div class="flex gap-3 w-full sm:w-auto">
+        <a href="{{ url_for('reports.export_orders_excel') }}"
+            class="inline-flex items-center justify-center px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm transition-colors flex-1 sm:flex-initial">
+            <svg class="w-4 h-4 sm:mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            <span class="hidden sm:inline">Exportar</span>
+        </a>
+        <button @click="openCreateModal()"
+            class="inline-flex items-center justify-center px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium shadow-sm transition-colors text-sm flex-1 sm:flex-initial">
+            <svg class="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            <span class="hidden sm:inline">Nuevo Pedido</span>
+            <span class="sm:hidden ml-2">Nuevo</span>
+        </button>
+    </div>
 
     <!-- Tabla de Pedidos -->
     <div class="w-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6 mt-4">
