@@ -71,7 +71,11 @@ def dashboard():
 @login_required
 def orders():
     """Gestión de pedidos a proveedores"""
-    orders = InboundOrder.query.order_by(InboundOrder.date_received.desc()).all()
+    orders = (
+        InboundOrder.query.filter_by(tenant_id=g.current_tenant.id)
+        .order_by(InboundOrder.created_at.desc())
+        .all()
+    )
     return render_template("warehouse/orders.html", orders=orders)
 
 
@@ -80,8 +84,13 @@ def orders():
 def receiving():
     """Recepción de mercancía"""
     pending = (
-        InboundOrder.query.filter(InboundOrder.status == "pending")
-        .order_by(InboundOrder.date_received.desc())
+        InboundOrder.query.filter(
+            and_(
+                InboundOrder.status == "pending",
+                InboundOrder.tenant_id == g.current_tenant.id,
+            )
+        )
+        .order_by(InboundOrder.created_at.desc())
         .all()
     )
     return render_template("warehouse/receiving.html", pending_orders=pending)
@@ -121,7 +130,7 @@ def get_orders():
     try:
         orders = (
             InboundOrder.query.filter_by(tenant_id=g.current_tenant.id)
-            .order_by(InboundOrder.date_received.desc())
+            .order_by(InboundOrder.created_at.desc())
             .all()
         )
 
@@ -278,6 +287,46 @@ def delete_order(order_id):
 
     except Exception as e:
         db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route("/api/receiving/orders", methods=["GET"])
+@login_required
+def get_receiving_orders():
+    """Obtener pedidos pendientes de recepción"""
+    try:
+        orders = (
+            InboundOrder.query.filter(
+                and_(
+                    InboundOrder.status == "pending",
+                    InboundOrder.tenant_id == g.current_tenant.id,
+                )
+            )
+            .order_by(InboundOrder.created_at.desc())
+            .all()
+        )
+
+        return jsonify(
+            {
+                "success": True,
+                "orders": [
+                    {
+                        "id": o.id,
+                        "supplier": o.supplier,
+                        "invoice_number": o.invoice_number,
+                        "status": o.status,
+                        "total": o.total,
+                        "notes": o.notes,
+                        "created_at": o.created_at.strftime("%d/%m/%Y %H:%M")
+                        if o.created_at
+                        else "",
+                    }
+                    for o in orders
+                ],
+            }
+        ), 200
+
+    except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
