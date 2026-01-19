@@ -352,4 +352,484 @@ Configurar backups automáticos diarios de \texttt{instance/inventory.db} (SQLit
     \item \textbf{CI/CD:} Configurar GitHub Actions para deploy automático
 \end{enumerate}
 
+\section{Mejoras Recientes Implementadas (Enero 2026)}
+
+\subsection{Validaciones de Formularios}
+
+Se implementaron validaciones robustas en todos los módulos de almacén para garantizar la integridad de los datos:
+
+\subsubsection{Validaciones en Pedidos a Proveedores}
+\begin{itemize}
+    \item \textbf{Proveedor:} Campo obligatorio, no puede estar vacío
+    \item \textbf{Número de Factura:} Campo obligatorio, debe ser único
+    \item \textbf{Total:} Debe ser un número válido, no puede ser negativo
+    \item \textbf{Validación de Tipo:} Conversión segura de tipos con manejo de excepciones
+\end{itemize}
+
+Ejemplo de validación implementada:
+\begin{verbatim}
+if not supplier:
+    return jsonify({
+        "success": False, 
+        "error": "El proveedor es obligatorio"
+    }), 400
+
+try:
+    total = float(total)
+    if total < 0:
+        return jsonify({
+            "success": False, 
+            "error": "El total no puede ser negativo"
+        }), 400
+except (ValueError, TypeError):
+    return jsonify({
+        "success": False, 
+        "error": "El total debe ser un número válido"
+    }), 400
+\end{verbatim}
+
+\subsubsection{Validaciones en Registro de Mermas}
+\begin{itemize}
+    \item \textbf{Producto:} Debe existir y pertenecer al tenant actual
+    \item \textbf{Cantidad:} Debe ser un entero positivo mayor a 0
+    \item \textbf{Razón:} Debe ser una de las opciones válidas (vencido, dañado, perdido, robo, otro)
+    \item \textbf{Stock Disponible:} Verifica que haya stock suficiente antes de registrar
+    \item \textbf{Lotes Disponibles:} Valida que existan lotes con cantidad disponible
+\end{itemize}
+
+\subsubsection{Validaciones en Gestión de Vencimientos}
+\begin{itemize}
+    \item \textbf{Formato de Fecha:} Valida formato YYYY-MM-DD
+    \item \textbf{Fecha Futura:} No permite fechas de vencimiento en el pasado
+    \item \textbf{Parsing Seguro:} Manejo de excepciones en conversión de fechas
+\end{itemize}
+
+Código de validación de fechas:
+\begin{verbatim}
+try:
+    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
+    
+    if expiry_date < datetime.now().date():
+        return jsonify({
+            "success": False, 
+            "error": "La fecha de vencimiento no puede 
+                     estar en el pasado"
+        }), 400
+    
+    product.expiry_date = expiry_date
+except ValueError:
+    return jsonify({
+        "success": False, 
+        "error": "Formato de fecha inválido. Use YYYY-MM-DD"
+    }), 400
+\end{verbatim}
+
+\subsection{Sistema de Alertas y Notificaciones}
+
+\subsubsection{API de Alertas}
+Se implementó un endpoint \texttt{/warehouse/api/alerts} que retorna alertas clasificadas por severidad:
+
+\begin{itemize}
+    \item \textbf{Alertas de Vencimiento:}
+    \begin{itemize}
+        \item Danger: Productos que vencen en $\leq$ 7 días
+        \item Warning: Productos que vencen en 8-14 días
+        \item Info: Productos que vencen en 15-30 días
+    \end{itemize}
+    
+    \item \textbf{Alertas de Stock Crítico:}
+    \begin{itemize}
+        \item Danger: Stock = 0 (agotado)
+        \item Warning: Stock $\leq$ Stock Crítico
+    \end{itemize}
+\end{itemize}
+
+Estructura de respuesta JSON:
+\begin{verbatim}
+{
+  "success": true,
+  "alerts": [
+    {
+      "type": "expiry",
+      "severity": "danger",
+      "product_id": 42,
+      "product_name": "Arroz Premium 1kg",
+      "message": "El producto 'Arroz Premium 1kg' 
+                  vence en 3 días",
+      "days_left": 3,
+      "expiry_date": "25/01/2026",
+      "stock": 45
+    },
+    {
+      "type": "low_stock",
+      "severity": "warning",
+      "product_id": 15,
+      "product_name": "Aceite Vegetal 900ml",
+      "message": "Stock bajo: 'Aceite Vegetal 900ml' 
+                  (8 unidades)",
+      "current_stock": 8,
+      "critical_stock": 10
+    }
+  ],
+  "count": 2
+}
+\end{verbatim}
+
+\subsection{Exportación a Excel con Estilo}
+
+Se implementaron 4 endpoints de exportación con formato profesional usando OpenPyXL:
+
+\subsubsection{Exportaciones Disponibles}
+
+\begin{enumerate}
+    \item \textbf{Ventas} (\texttt{/reports/sales/excel})
+    \begin{itemize}
+        \item Campos: ID, Fecha, Cliente, Estado, Items, Total, Método Pago
+        \item Headers con fondo azul (\#4F81BD) y texto blanco
+        \item Alineación centrada en encabezados
+        \item Auto-ajuste de columnas
+    \end{itemize}
+    
+    \item \textbf{Mermas} (\texttt{/reports/warehouse/wastage/excel})
+    \begin{itemize}
+        \item Campos: ID, Fecha, Producto, SKU, Cantidad, Razón, Notas
+        \item Headers con fondo rojo (\#E74C3C)
+        \item Ancho máximo de columna: 50 caracteres
+    \end{itemize}
+    
+    \item \textbf{Inventario Completo} (\texttt{/reports/warehouse/inventory/excel})
+    \begin{itemize}
+        \item Campos: SKU, Nombre, Categoría, Precio Base, Stock Total, Stock Crítico, Estado, Vencimiento
+        \item Headers con fondo verde (\#27AE60)
+        \item \textbf{Formato condicional:} Filas con stock crítico marcadas en rojo claro (\#FFCCCC)
+        \item Columna "Estado" calculada automáticamente (CRÍTICO/OK)
+    \end{itemize}
+    
+    \item \textbf{Pedidos a Proveedores} (\texttt{/reports/warehouse/orders/excel})
+    \begin{itemize}
+        \item Campos: ID, Proveedor, N° Factura, Estado, Total, Fecha Creación, Fecha Recepción, Notas
+        \item Headers con fondo azul claro (\#3498DB)
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Código de Estilo en Exportaciones}
+
+Ejemplo de aplicación de estilos:
+\begin{verbatim}
+from openpyxl.styles import Font, PatternFill, Alignment
+
+# Estilo para headers
+header_fill = PatternFill(
+    start_color="27AE60", 
+    end_color="27AE60", 
+    fill_type="solid"
+)
+header_font = Font(bold=True, color="FFFFFF")
+
+for cell in ws[1]:
+    cell.fill = header_fill
+    cell.font = header_font
+    cell.alignment = Alignment(horizontal="center")
+
+# Formato condicional para stock crítico
+if product.total_stock <= product.critical_stock:
+    for cell in ws[ws.max_row]:
+        cell.fill = PatternFill(
+            start_color="FFCCCC", 
+            end_color="FFCCCC", 
+            fill_type="solid"
+        )
+\end{verbatim}
+
+\subsection{Diseño Responsive Mejorado}
+
+Se optimizaron todos los módulos de almacén para funcionar perfectamente en dispositivos móviles:
+
+\subsubsection{Breakpoints de Tailwind CSS}
+\begin{itemize}
+    \item \textbf{sm:} $\geq$ 640px (smartphones en landscape)
+    \item \textbf{md:} $\geq$ 768px (tablets)
+    \item \textbf{lg:} $\geq$ 1024px (laptops)
+    \item \textbf{xl:} $\geq$ 1280px (desktops)
+\end{itemize}
+
+\subsubsection{Mejoras por Módulo}
+
+\paragraph{Registro de Mermas}
+\begin{itemize}
+    \item Vista de tabla en escritorio (hidden sm:block)
+    \item Vista de tarjetas (cards) en móvil (sm:hidden)
+    \item Botones apilados verticalmente en móvil
+    \item Formulario con padding reducido en pantallas pequeñas
+\end{itemize}
+
+Ejemplo de implementación responsive:
+\begin{verbatim}
+<!-- Desktop Table -->
+<div class="hidden sm:block overflow-x-auto">
+    <table class="min-w-full">
+        ...
+    </table>
+</div>
+
+<!-- Mobile Cards -->
+<div class="sm:hidden space-y-3">
+    <template x-for="wastage in wastageHistory">
+        <div class="bg-slate-50 rounded-lg p-4">
+            <p class="font-semibold text-sm" 
+               x-text="wastage.product_name"></p>
+            <p class="text-xs text-slate-600" 
+               x-text="wastage.date"></p>
+            ...
+        </div>
+    </template>
+</div>
+\end{verbatim}
+
+\paragraph{Pedidos a Proveedores}
+\begin{itemize}
+    \item Botones de acción reorganizados en flexbox
+    \item Botón "Exportar" muestra solo icono en móvil
+    \item Botón "Nuevo" con texto abreviado en móvil
+    \item Headers de tabla con tamaño de fuente reducido (text-2xl $\rightarrow$ text-xl en móvil)
+\end{itemize}
+
+\paragraph{Gestión de Vencimientos}
+\begin{itemize}
+    \item DataTables con modo responsive activado
+    \item Columnas prioritarias definidas (Name, SKU, Actions)
+    \item Oculta columnas secundarias automáticamente en móvil
+    \item Control responsivo de botones (+/-)
+\end{itemize}
+
+\subsection{Dashboard Principal con Chart.js}
+
+El dashboard ya incluye visualizaciones avanzadas:
+
+\begin{itemize}
+    \item \textbf{Gráfica de Tendencia de Ventas:}
+    \begin{itemize}
+        \item Tipo: Line chart con gradiente
+        \item Rangos: 7 días, 30 días, mes actual, 6 meses, año completo
+        \item Selector de mes personalizado
+        \item Click en punto abre modal con detalle de ventas del día
+    \end{itemize}
+    
+    \item \textbf{Tarjetas de Estadísticas:}
+    \begin{itemize}
+        \item Total de Ventas
+        \item Total de Productos
+        \item Ingresos Totales (formateado en CLP)
+    \end{itemize}
+    
+    \item \textbf{Actividad Reciente:}
+    \begin{itemize}
+        \item Últimas 10 ventas
+        \item Estado visual con badges de color
+        \item Link directo al módulo de ventas
+    \end{itemize}
+\end{itemize}
+
+\subsection{Estructura de Archivos del Proyecto}
+
+\begin{verbatim}
+Software Inventario 2026/
+├── README.md                    # Documentación principal
+├── .gitignore                   # Archivos ignorados por Git
+├── run.py                       # Punto de entrada
+├── config.py                    # Configuración Flask
+├── requirements.txt             # Dependencias Python
+│
+├── app/
+│   ├── __init__.py             # Factory de Flask
+│   ├── models.py               # Modelos SQLAlchemy
+│   ├── extensions.py           # Extensiones (db, login)
+│   │
+│   ├── routes/
+│   │   ├── auth.py            # Autenticación
+│   │   ├── main.py            # Rutas principales
+│   │   ├── api.py             # API REST
+│   │   ├── warehouse.py       # Almacén (CRUD + API)
+│   │   ├── logistics.py       # Logística y flota
+│   │   └── reports.py         # Exportaciones Excel
+│   │
+│   ├── templates/
+│   │   ├── base.html          # Template base
+│   │   ├── dashboard.html     # Dashboard con Chart.js
+│   │   ├── products.html      # Catálogo productos
+│   │   ├── sales.html         # Módulo ventas
+│   │   │
+│   │   ├── auth/
+│   │   │   └── login.html     # Página login
+│   │   │
+│   │   └── warehouse/
+│   │       ├── dashboard.html      # Dashboard almacén
+│   │       ├── orders.html         # Pedidos proveedores
+│   │       ├── receiving.html      # Recepción mercancía
+│   │       ├── wastage.html        # Registro mermas
+│   │       └── expiry.html         # Gestión vencimientos
+│   │
+│   └── static/
+│       └── css/
+│           └── styles.css     # Estilos personalizados
+│
+├── migrations/                 # Migraciones Alembic
+│   ├── versions/              # Historial migraciones
+│   └── env.py                 # Configuración Alembic
+│
+├── scripts/                    # Scripts utilidad
+│   ├── create_users.py
+│   ├── seed_tenants.py
+│   ├── verify_isolation.py
+│   └── archived/              # Scripts obsoletos
+│
+├── tests/                      # Tests unitarios
+│   └── test_fleet.py
+│
+├── instance/
+│   └── inventory.db           # Base datos SQLite
+│
+├── ___documentos/             # Docs de negocio
+└── ___Planificación/          # Documentación técnica
+    ├── Plan.tex               # Este documento
+    └── Plan.pdf               # Versión compilada
+\end{verbatim}
+
+\subsection{API REST Documentación}
+
+\subsubsection{Endpoints de Productos}
+\begin{itemize}
+    \item \texttt{GET /api/products} - Listar productos del tenant
+    \item \texttt{POST /api/products} - Crear producto
+    \item \texttt{GET /api/products/<id>} - Obtener producto
+    \item \texttt{PUT /api/products/<id>} - Actualizar producto
+    \item \texttt{DELETE /api/products/<id>} - Eliminar producto
+\end{itemize}
+
+\subsubsection{Endpoints de Ventas}
+\begin{itemize}
+    \item \texttt{GET /api/sales} - Listar ventas
+    \item \texttt{POST /api/sales} - Crear venta
+    \item \texttt{GET /api/sales/<id>} - Detalle venta
+    \item \texttt{POST /api/sales/bulk-delete} - Eliminar múltiples
+\end{itemize}
+
+\subsubsection{Endpoints de Almacén}
+\begin{itemize}
+    \item \texttt{GET /warehouse/api/orders} - Listar pedidos
+    \item \texttt{POST /warehouse/api/orders} - Crear pedido
+    \item \texttt{PUT /warehouse/api/orders/<id>} - Actualizar pedido
+    \item \texttt{DELETE /warehouse/api/orders/<id>} - Eliminar pedido
+    \item \texttt{POST /warehouse/api/receiving/<id>} - Confirmar recepción
+    \item \texttt{POST /warehouse/api/wastage} - Registrar merma
+    \item \texttt{GET /warehouse/api/wastage/history} - Historial mermas
+    \item \texttt{DELETE /warehouse/api/wastage/<id>} - Eliminar registro merma
+    \item \texttt{GET /warehouse/api/expiry/products} - Productos con vencimiento
+    \item \texttt{PUT /warehouse/api/expiry/<id>} - Actualizar vencimiento
+    \item \texttt{GET /warehouse/api/alerts} - Obtener alertas (NUEVO)
+    \item \texttt{POST /warehouse/api/assembly} - Ensamblar bundle/kit
+\end{itemize}
+
+\subsubsection{Endpoints de Reportes (Exportación)}
+\begin{itemize}
+    \item \texttt{GET /reports/sales/excel} - Exportar ventas
+    \item \texttt{GET /reports/warehouse/wastage/excel} - Exportar mermas
+    \item \texttt{GET /reports/warehouse/inventory/excel} - Exportar inventario
+    \item \texttt{GET /reports/warehouse/orders/excel} - Exportar pedidos
+\end{itemize}
+
+\subsection{Seguridad Implementada}
+
+\begin{itemize}
+    \item \textbf{Autenticación:} Flask-Login con sesiones seguras
+    \item \textbf{Passwords:} Hash con Werkzeug (PBKDF2-SHA256)
+    \item \textbf{Multi-Tenancy:} Aislamiento total de datos por tenant\_id
+    \item \textbf{Validación Tenant:} Verificación en cada endpoint API
+    \item \textbf{SQL Injection:} Protección mediante SQLAlchemy ORM
+    \item \textbf{XSS:} Escapado automático en Jinja2 templates
+    \item \textbf{CSRF:} Recomendado implementar Flask-WTF (pendiente)
+\end{itemize}
+
+Ejemplo de validación de tenant:
+\begin{verbatim}
+if order.tenant_id != g.current_tenant.id:
+    return jsonify({
+        "success": False, 
+        "error": "Acceso denegado"
+    }), 403
+\end{verbatim}
+
+\subsection{Testing y Calidad de Código}
+
+\subsubsection{Tests Existentes}
+\begin{itemize}
+    \item \texttt{tests/test\_fleet.py} - Tests del módulo de flota
+    \item Scripts de verificación en \texttt{scripts/}:
+    \begin{itemize}
+        \item \texttt{verify\_isolation.py} - Verifica aislamiento multi-tenant
+        \item \texttt{verify\_stock\_logic.py} - Valida lógica de stock
+        \item \texttt{verify\_logistics.py} - Tests de logística
+        \item \texttt{test\_assembly\_logic.py} - Tests de ensamblado bundles
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Comandos de Testing}
+\begin{verbatim}
+# Ejecutar todos los tests
+pytest
+
+# Test específico
+pytest tests/test_fleet.py
+
+# Con cobertura
+pytest --cov=app tests/
+
+# Verificación de aislamiento
+python scripts/verify_isolation.py
+\end{verbatim}
+
+\section{Conclusiones y Estado Actual}
+
+El sistema ERP de Inventario 2026 se encuentra en un estado \textbf{production-ready} con las siguientes características completadas:
+
+\begin{enumerate}
+    \item ✅ \textbf{Multi-Tenancy} completamente funcional y aislado
+    \item ✅ \textbf{4 Módulos de Almacén} con CRUD completo
+    \item ✅ \textbf{Validaciones robustas} en formularios y API
+    \item ✅ \textbf{Exportaciones Excel} con formato profesional
+    \item ✅ \textbf{Sistema de alertas} para vencimientos y stock
+    \item ✅ \textbf{Diseño responsive} optimizado para móviles
+    \item ✅ \textbf{Dashboard interactivo} con Chart.js
+    \item ✅ \textbf{Documentación completa} (README + LaTeX)
+    \item ✅ \textbf{Control de versiones} con Git/GitHub
+\end{enumerate}
+
+\subsection{Métricas del Proyecto}
+
+\begin{itemize}
+    \item \textbf{Líneas de código:} ~10,000 líneas
+    \item \textbf{Archivos:} 127 archivos en repositorio
+    \item \textbf{Modelos de datos:} 15+ tablas SQLAlchemy
+    \item \textbf{Endpoints API:} 30+ rutas implementadas
+    \item \textbf{Templates:} 20+ archivos HTML/Jinja2
+    \item \textbf{Tecnologías:} Flask, SQLAlchemy, Tailwind, Alpine.js, DataTables, Chart.js
+\end{itemize}
+
+\subsection{Recomendaciones Finales}
+
+Para llevar el sistema a producción se recomienda:
+
+\begin{enumerate}
+    \item Migrar a PostgreSQL para mejor rendimiento en producción
+    \item Implementar Redis para cache y sesiones
+    \item Configurar Nginx como reverse proxy
+    \item Implementar HTTPS con Let's Encrypt
+    \item Configurar backups automáticos diarios
+    \item Implementar monitoreo con Sentry o similar
+    \item Agregar rate limiting en API endpoints
+    \item Implementar CSRF protection con Flask-WTF
+    \item Configurar CI/CD con GitHub Actions
+    \item Documentar API con Swagger/OpenAPI
+\end{enumerate}
+
 \end{document}

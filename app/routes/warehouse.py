@@ -284,7 +284,7 @@ def delete_order(order_id):
 @bp.route("/api/receiving/<int:order_id>", methods=["POST"])
 @login_required
 def confirm_receiving(order_id):
-    """Confirmar recepción de pedido"""
+    """Confirmar recepción de pedido con validaciones y procesamiento de lotes"""
     try:
         order = InboundOrder.query.get_or_404(order_id)
 
@@ -292,14 +292,133 @@ def confirm_receiving(order_id):
         if hasattr(order, "tenant_id") and order.tenant_id != g.current_tenant.id:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
-        # Actualizar estado
+        # Verificar que el pedido no haya sido ya recibido
+        if order.status == "received":
+            return jsonify(
+                {"success": False, "error": "Este pedido ya fue recibido"}
+            ), 400
+
+        # Obtener datos del request
+        data = request.get_json()
+
+        # Validar datos recibidos
+        if not data:
+            return jsonify({"success": False, "error": "No se recibieron datos"}), 400
+
+        products = data.get("products", [])
+
+        # Validar que hay al menos un producto
+        if not products or len(products) == 0:
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Debe agregar al menos un producto a la recepción",
+                }
+            ), 400
+
+        # Procesar cada producto
+        for idx, item in enumerate(products):
+            # Validar campos requeridos
+            if not item.get("product_id"):
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Producto {idx + 1}: Debe seleccionar un producto",
+                    }
+                ), 400
+
+            # Validar y convertir cantidad
+            try:
+                quantity = int(item.get("quantity", 0))
+                if quantity <= 0:
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": f"Producto {idx + 1}: La cantidad debe ser mayor a 0",
+                        }
+                    ), 400
+            except (ValueError, TypeError):
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Producto {idx + 1}: Cantidad inválida",
+                    }
+                ), 400
+
+            # Validar que el producto existe y pertenece al tenant
+            product = Product.query.get(item["product_id"])
+            if not product:
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Producto {idx + 1}: Producto no encontrado",
+                    }
+                ), 404
+
+            if product.tenant_id != g.current_tenant.id:
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": f"Producto {idx + 1}: Acceso denegado",
+                    }
+                ), 403
+
+            # Validar código de lote (opcional pero debe ser string si se proporciona)
+            lot_code = str(item.get("lot_code", "")).strip()
+            if not lot_code:
+                lot_code = f"LOT-{order_id}-{product.id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+            # Validar fecha de vencimiento (opcional)
+            expiry_date = None
+            if item.get("expiry_date"):
+                try:
+                    expiry_date = datetime.strptime(
+                        str(item["expiry_date"]).strip(), "%Y-%m-%d"
+                    ).date()
+                    # Validar que no sea fecha pasada
+                    if expiry_date < datetime.now().date():
+                        return jsonify(
+                            {
+                                "success": False,
+                                "error": f"Producto {idx + 1}: La fecha de vencimiento no puede ser en el pasado",
+                            }
+                        ), 400
+                except (ValueError, TypeError):
+                    return jsonify(
+                        {
+                            "success": False,
+                            "error": f"Producto {idx + 1}: Formato de fecha de vencimiento inválido (use YYYY-MM-DD)",
+                        }
+                    ), 400
+
+            # Crear lote de inventario
+            from app.models import Lot
+
+            lot = Lot(
+                product_id=product.id,
+                order_id=order.id,
+                tenant_id=g.current_tenant.id,
+                lot_code=lot_code,
+                quantity_initial=quantity,
+                quantity_current=quantity,
+                expiry_date=expiry_date,
+            )
+            db.session.add(lot)
+
+            # Actualizar stock del producto
+            product.stock += quantity
+
+        # Actualizar estado del pedido
         order.status = "received"
         order.date_received = datetime.now()
 
         db.session.commit()
 
         return jsonify(
-            {"success": True, "message": "Recepción confirmada exitosamente"}
+            {
+                "success": True,
+                "message": f"Recepción confirmada exitosamente. {len(products)} producto(s) agregado(s) al inventario.",
+            }
         ), 200
 
     except Exception as e:
