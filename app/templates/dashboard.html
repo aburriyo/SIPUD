@@ -1,0 +1,509 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Quick Access Buttons -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <!-- Ventas Button -->
+    <a href="{{ url_for('main.sales_view') }}"
+        class="bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-6 flex flex-col items-center justify-center gap-3 min-h-[140px]">
+        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z">
+            </path>
+        </svg>
+        <span class="text-lg font-bold">Ventas</span>
+    </a>
+
+    <!-- Productos Button -->
+    <a href="{{ url_for('main.products_view') }}"
+        class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-6 flex flex-col items-center justify-center gap-3 min-h-[140px]">
+        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+        </svg>
+        <span class="text-lg font-bold">Productos</span>
+    </a>
+
+    <!-- Flota Button -->
+    <a href="{{ url_for('main.fleet_view') }}"
+        class="bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-6 flex flex-col items-center justify-center gap-3 min-h-[140px]">
+        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <span class="text-lg font-bold">Flota</span>
+    </a>
+
+    <!-- Operaciones Button (New) -->
+    <a href="{{ url_for('warehouse.dashboard') }}"
+        class="bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-6 flex flex-col items-center justify-center gap-3 min-h-[140px]">
+        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
+            </path>
+        </svg>
+        <span class="text-lg font-bold">Operaciones</span>
+    </a>
+</div>
+
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Stat 1 -->
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center hover:shadow-md transition-shadow">
+        <div class="p-3 rounded-lg bg-indigo-50 text-indigo-600">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z">
+                </path>
+            </svg>
+        </div>
+        <div class="ml-4">
+            <p class="text-sm font-medium text-slate-500 uppercase tracking-wide">Ventas Totales</p>
+            <p class="text-3xl font-bold text-slate-800 mt-1">{{ stats.total_sales }}</p>
+        </div>
+    </div>
+
+    <!-- Stat 2 -->
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center hover:shadow-md transition-shadow">
+        <div class="p-3 rounded-lg bg-purple-50 text-purple-600">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+            </svg>
+        </div>
+        <div class="ml-4">
+            <p class="text-sm font-medium text-slate-500 uppercase tracking-wide">Productos</p>
+            <p class="text-3xl font-bold text-slate-800 mt-1">{{ stats.total_products }}</p>
+        </div>
+    </div>
+
+    <!-- Stat 3 -->
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center hover:shadow-md transition-shadow">
+        <div class="p-3 rounded-lg bg-emerald-50 text-emerald-600">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                </path>
+            </svg>
+        </div>
+        <div class="ml-4">
+            <p class="text-sm font-medium text-slate-500 uppercase tracking-wide">Ingresos</p>
+            <p class="text-3xl font-bold text-emerald-600 mt-1">${{ "{:,.0f}".format(stats.total_revenue) }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Charts & Activity Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Sales Chart -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+            <h3 class="font-bold text-slate-800">Tendencia de Ventas</h3>
+            <select id="rangeSelect"
+                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2">
+                <option value="last_7">Últimos 7 Días</option>
+                <option value="last_30">Últimos 30 Días</option>
+                <option value="this_month">Este Mes</option>
+                <option value="last_month">Mes Anterior</option>
+                <option value="last_6_months">Últimos 6 Meses</option>
+                <option value="year">Este Año (Mensual)</option>
+                <option value="all_time">Todo el Historial</option>
+                <option value="custom_month">Seleccionar Mes...</option>
+            </select>
+            <input type="month" id="monthPicker"
+                class="hidden ml-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 p-2">
+        </div>
+        <div class="p-6 flex-1">
+            <div class="relative h-72 w-full">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
+        <!-- ... (Rest of recent activity) ... -->
+        <div class="px-6 py-4 border-b border-slate-100">
+            <h3 class="font-bold text-slate-800">Últimas Ventas</h3>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+            <ul class="divide-y divide-slate-100">
+                {% for sale in stats.recent_sales %}
+                <li class="px-6 py-4 hover:bg-slate-50 transition-colors">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-sm font-medium text-slate-900">Pedido #{{ sale.id }}</p>
+                            <p class="text-xs text-slate-500">{{ sale.customer }}</p>
+                        </div>
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                {{ 'bg-green-100 text-green-800' if sale.status == 'delivered' else 
+                                   'bg-yellow-100 text-yellow-800' if sale.status == 'pending' else 'bg-slate-100 text-slate-800' }}">
+                            {{ sale.status|translate_status }}
+                        </span>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl">
+            <a href="{{ url_for('main.sales_view') }}"
+                class="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center justify-center">
+                Ver todas las ventas
+                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3">
+                    </path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Drill Down Modal -->
+<div id="drillDownModal"
+    class="fixed inset-0 z-50 hidden bg-gray-900 bg-opacity-50 overflow-y-auto h-full w-full backdrop-blur-sm"
+    style="display: none;"> <!-- Force hidden with style too for vanilla toggle safety -->
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-900" id="drillDownTitle">Detalle de Ventas</h3>
+            <button onclick="closeDrillDownModal()" class="text-gray-400 hover:text-gray-500">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+            </button>
+        </div>
+        <div class="mt-2 text-left">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Fecha</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Cliente</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Total</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="drillDownTableBody">
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="drillDownLoading" class="hidden text-center py-4">
+                <p class="text-gray-500">Cargando...</p>
+            </div>
+            <div id="drillDownEmpty" class="hidden text-center py-4">
+                <p class="text-gray-500">No se encontraron ventas para este periodo.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    function closeDrillDownModal() {
+        document.getElementById('drillDownModal').style.display = 'none';
+        document.getElementById('drillDownModal').classList.add('hidden');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let chartInstance = null;
+        const rangeSelect = document.getElementById('rangeSelect');
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        const drillDownModal = document.getElementById('drillDownModal');
+        const drillDownTitle = document.getElementById('drillDownTitle');
+        const drillDownTableBody = document.getElementById('drillDownTableBody');
+        const drillDownLoading = document.getElementById('drillDownLoading');
+        const drillDownEmpty = document.getElementById('drillDownEmpty');
+
+        function openDrillDown(dateKey, label) {
+            drillDownTitle.textContent = `Ventas del: ${label}`;
+            drillDownModal.style.display = 'block';
+            drillDownModal.classList.remove('hidden');
+
+            drillDownTableBody.innerHTML = '';
+            drillDownLoading.classList.remove('hidden');
+            drillDownEmpty.classList.add('hidden');
+
+            fetch(`/api/sales?date=${dateKey}&per_page=100`)
+                .then(res => res.json())
+                .then(data => {
+                    drillDownLoading.classList.add('hidden');
+                    if (data.sales && data.sales.length > 0) {
+                        // Translation function for status
+                        const statusTranslate = (status) => {
+                            const translations = {
+                                'pending': 'pendiente',
+                                'delivered': 'entregado',
+                                'cancelled': 'cancelado',
+                                'assigned': 'asignado',
+                                'in_transit': 'en tránsito'
+                            };
+                            return translations[status] || status;
+                        };
+
+                        data.sales.forEach(sale => {
+                            const row = document.createElement('tr');
+                            // Format currency
+                            const totalFormatted = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(sale.total);
+
+                            row.innerHTML = `
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${sale.date}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    ${sale.customer}
+                                    <div class="text-xs text-gray-400 truncate w-32">#${sale.id} - ${sale.items.map(i => i.product + ' (' + i.quantity + ')').join(', ')}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${totalFormatted}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        ${sale.status === 'delivered' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                                        ${statusTranslate(sale.status)}
+                                    </span>
+                                </td>
+                            `;
+                            drillDownTableBody.appendChild(row);
+                        });
+                    } else {
+                        drillDownEmpty.classList.remove('hidden');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    drillDownLoading.classList.add('hidden');
+                    drillDownEmpty.textContent = 'Error al cargar datos.';
+                    drillDownEmpty.classList.remove('hidden');
+                });
+        }
+
+        function loadChart(range) {
+            let url = `/api/dashboard?range=${range}`;
+            // The 'specific_month' range is handled by the monthPicker listener directly
+            // and constructs its own URL. This loadChart function is for the main rangeSelect.
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.chart_data) {
+                        if (chartInstance) {
+                            chartInstance.destroy();
+                        }
+
+                        chartInstance = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: data.chart_data.labels,
+                                datasets: [{
+                                    label: 'Ventas ($)',
+                                    data: data.chart_data.values,
+                                    borderColor: '#4f46e5',
+                                    backgroundColor: (context) => {
+                                        const ctx = context.chart.ctx;
+                                        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
+                                        gradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
+                                        return gradient;
+                                    },
+                                    borderWidth: 3,
+                                    tension: 0.4,
+                                    fill: true,
+                                    pointBackgroundColor: '#ffffff',
+                                    pointBorderColor: '#4f46e5',
+                                    pointBorderWidth: 2,
+                                    pointRadius: 4,
+                                    pointHoverRadius: 6
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                onClick: (e) => {
+                                    const points = chartInstance.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+                                    if (points.length) {
+                                        const firstPoint = points[0];
+                                        const index = firstPoint.index;
+                                        const dateKey = data.chart_data.keys[index];
+                                        const label = data.chart_data.labels[index];
+
+                                        if (dateKey) {
+                                            openDrillDown(dateKey, label);
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        backgroundColor: '#1e293b',
+                                        padding: 12,
+                                        titleFont: { family: '"Plus Jakarta Sans", sans-serif', size: 13 },
+                                        bodyFont: { family: '"Plus Jakarta Sans", sans-serif', size: 13 },
+                                        callbacks: {
+                                            label: function (context) {
+                                                let label = context.dataset.label || '';
+                                                if (label) label += ': ';
+                                                if (context.parsed.y !== null) {
+                                                    label += new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(context.parsed.y);
+                                                }
+                                                return label;
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        grid: { color: '#f1f5f9', drawBorder: false },
+                                        ticks: {
+                                            font: { family: '"Plus Jakarta Sans", sans-serif', size: 11 },
+                                            color: '#64748b',
+                                            callback: function (value) { return '$' + value; }
+                                        },
+                                        border: { display: false }
+                                    },
+                                    x: {
+                                        grid: { display: false },
+                                        ticks: {
+                                            font: { family: '"Plus Jakarta Sans", sans-serif', size: 11 },
+                                            color: '#64748b'
+                                        },
+                                        border: { display: false }
+                                    }
+                                },
+                                interaction: {
+                                    intersect: false,
+                                    mode: 'index',
+                                },
+                            }
+                        });
+                    }
+                });
+        }
+
+        // Initial Load
+        loadChart('last_7');
+
+        // Event Listener
+        rangeSelect.addEventListener('change', function (e) {
+            const picker = document.getElementById('monthPicker');
+            if (e.target.value === 'custom_month') {
+                picker.classList.remove('hidden');
+                picker.focus();
+            } else {
+                picker.classList.add('hidden');
+                loadChart(e.target.value);
+            }
+        });
+
+        document.getElementById('monthPicker').addEventListener('change', function (e) {
+            if (e.target.value) {
+                // Fetch with specific month
+                fetch(`/api/dashboard?range=specific_month&month=${e.target.value}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.chart_data) {
+                            if (chartInstance) {
+                                chartInstance.destroy();
+                            }
+
+                            chartInstance = new Chart(ctx, {
+                                type: 'line',
+                                data: {
+                                    labels: data.chart_data.labels,
+                                    datasets: [{
+                                        label: 'Ventas ($)',
+                                        data: data.chart_data.values,
+                                        borderColor: '#4f46e5',
+                                        backgroundColor: (context) => {
+                                            const ctx = context.chart.ctx;
+                                            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                            gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
+                                            gradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
+                                            return gradient;
+                                        },
+                                        borderWidth: 3,
+                                        tension: 0.4,
+                                        fill: true,
+                                        pointBackgroundColor: '#ffffff',
+                                        pointBorderColor: '#4f46e5',
+                                        pointBorderWidth: 2,
+                                        pointRadius: 4,
+                                        pointHoverRadius: 6
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    onClick: (e) => {
+                                        const points = chartInstance.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+                                        if (points.length) {
+                                            const firstPoint = points[0];
+                                            const index = firstPoint.index;
+                                            const dateKey = data.chart_data.keys[index];
+                                            const label = data.chart_data.labels[index];
+
+                                            if (dateKey) {
+                                                openDrillDown(dateKey, label);
+                                            }
+                                        }
+                                    },
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            backgroundColor: '#1e293b',
+                                            padding: 12,
+                                            titleFont: { family: '"Plus Jakarta Sans", sans-serif', size: 13 },
+                                            bodyFont: { family: '"Plus Jakarta Sans", sans-serif', size: 13 },
+                                            callbacks: {
+                                                label: function (context) {
+                                                    let label = context.dataset.label || '';
+                                                    if (label) label += ': ';
+                                                    if (context.parsed.y !== null) {
+                                                        label += new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(context.parsed.y);
+                                                    }
+                                                    return label;
+                                                }
+                                            }
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            grid: { color: '#f1f5f9', drawBorder: false },
+                                            ticks: {
+                                                font: { family: '"Plus Jakarta Sans", sans-serif', size: 11 },
+                                                color: '#64748b',
+                                                callback: function (value) { return '$' + value; }
+                                            },
+                                            border: { display: false }
+                                        },
+                                        x: {
+                                            grid: { display: false },
+                                            ticks: {
+                                                font: { family: '"Plus Jakarta Sans", sans-serif', size: 11 },
+                                                color: '#64748b'
+                                            },
+                                            border: { display: false }
+                                        }
+                                    },
+                                    interaction: {
+                                        intersect: false,
+                                        mode: 'index',
+                                    },
+                                }
+                            });
+                        }
+                    });
+            }
+        });
+    });
+</script>
+{% endblock %}

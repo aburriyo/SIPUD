@@ -1,0 +1,132 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{amsmath}
+
+% Configuración de página
+\geometry{a4paper, margin=2.5cm}
+\titleformat{\section}{\normalfont\Large\bfseries\color{darkblue}}{}{0pt}{}
+\definecolor{darkblue}{rgb}{0.0, 0.0, 0.5}
+
+\title{
+    \textbf{Planificación Técnica de Desarrollo}\\
+    \large Sistema de Gestión de Inventario y Cuadratura Comercial
+}
+\author{Consultoría de Software - Flask/SQLite Stack}
+\date{12 de enero de 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introducción}
+Este documento detalla la planificación para la migración de un sistema basado en hojas de cálculo hacia una aplicación web centralizada utilizando el micro-framework \textbf{Flask} y \textbf{SQLite}. El objetivo es eliminar el desorden de datos y automatizar la fórmula: 
+\[ \text{Stock Actualizado} = \text{Stock Inicial} + \text{Compras} - \text{Ventas} \]
+
+\section{Módulos Críticos y Flujo de Datos}
+
+\subsection{1. Módulo de Abastecimiento y Lotes}
+Basado en la hoja ``Detalle Stock'', se implementará un sistema de trazabilidad por lotes.
+\begin{itemize}
+    \item \textbf{Gestión de Lote PD (Product Data):} Registro de fecha de recepción, elaboración y vencimiento.
+    \item \textbf{Control de Proveedor:} Almacenamiento de Código de Proveedor y N° de Factura de entrada.
+    \item \textbf{Estado de Facturación:} Marcado de facturas como ``Pagado'' o ``Pendiente'' para el flujo de caja.
+\end{itemize}
+
+\subsection{2. Módulo de Logística y Reparto}
+Este módulo digitaliza la ``Hoja de Repartidor'', optimizando el seguimiento físico:
+\begin{itemize}
+    \item \textbf{KPIs de Ruta:} Registro de Kilometraje (Km) y tiempo de ruta para medir eficiencia.
+    \item \textbf{Geo-referenciación:} Campos de Sector y Ciudad para futuros mapas de calor de ventas.
+    \item \textbf{Vínculo de Venta:} Cada salida de bodega debe estar amarrada a una Nota de Venta o Factura.
+\end{itemize}
+
+\subsection{3. Motor de Cuadratura}
+Es el corazón del sistema. Debe comparar las ventas de plataformas externas (como Jumpseller) con el inventario físico disponible.
+\begin{itemize}
+    \item \textbf{Conciliación:} Validación automática de montos y cantidades facturadas vs. despachadas.
+\end{itemize}
+
+\subsection{4. Módulo de Armado de Cajas (Kitting)}
+Funcionalidad crítica para evitar la duplicidad de inventario al manejar productos compuestos (Cajas o Packs).
+\begin{itemize}
+    \item \textbf{Transformación de Stock:} Al "armar" una caja, el sistema descuenta automáticamente el stock de los componentes individuales y aumenta el stock de la caja terminada.
+    \item \textbf{Consistencia:} Se valida que existan suficientes componentes antes del armado, asegurando que el total de stock valorizado se mantenga constante.
+\end{itemize}
+
+\section{Especificaciones Técnicas}
+
+\subsection{Modelado de Base de Datos (SQLAlchemy)}
+Se utilizarán las siguientes tablas principales:
+\begin{enumerate}[label=\alph*)]
+    \item \textbf{User:} Control de acceso para el personal.
+    \item \textbf{Product:} Maestro de artículos con stock crítico.
+    \item \textbf{LotDetail:} Almacén de fechas de vencimiento y códigos específicos.
+    \item \textbf{Sale:} Registro de ventas (integrando campos de e-commerce).
+    \item \textbf{LogisticsRoute:} Registro de despachos y métricas de transporte.
+\end{enumerate}
+
+
+
+\subsection{Interfaz de Usuario (UX/UI)}
+\begin{itemize}
+    \item \textbf{Estilo:} Minimalista basado en Tailwind CSS, priorizando la legibilidad en dispositivos móviles para el personal de bodega y repartidores.
+    \item \textbf{Responsividad:} Tablas con scroll horizontal para datos extensos de stock y botones de acción rápida para entrada/salida.
+\end{itemize}
+
+\section{Cronograma de Implementación}
+\begin{description}
+    \item[Semana 1:] Configuración del entorno Flask y migración inicial (ETL) de los Excels actuales a SQLite.
+    \item[Semana 2:] Desarrollo de formularios de ingreso (Abastecimiento) y lógica de lotes.
+    \item[Semana 3:] Implementación de vistas de logística y reportes de cuadratura.
+    \item[Semana 4:] Despliegue en servidor (Render/Railway) y capacitación de usuario final.
+\end{description}
+
+\section{Implementación Técnica Realizada}
+
+\subsection{Esquema de Base de Datos}
+Se ha implementado el siguiente modelo relacional en SQLite:
+
+\begin{itemize}
+    \item \textbf{User:} Gestión de usuarios con roles (admin, bodega, driver).
+    \item \textbf{Supplier:} Proveedores de productos.
+    \item \textbf{Product:} Catálogo maestro (SKU, Nombre, Stock Crítico). Relacionado 1 a N con \texttt{Lot}. Identifica si es "Bundle" (Caja).
+    \item \textbf{ProductBundle:} Tabla intermedia que define la "receta" de una Caja (qué componentes y en qué cantidad).
+    \item \textbf{InboundOrder:} Cabecera de recepción de productos (Facturas de compra).
+    \item \textbf{Lot:} Trazabilidad de lotes. Incluye \texttt{lot\_code}, fecha de vencimiento y cantidades.
+    \item \textbf{Sale:} Cabecera de pedido/venta. Estados: pending, assigned, in\_transit, delivered.
+    \item \textbf{SaleItem:} Detalle de productos por venta. Normaliza la estructura plana de los Excel antiguos.
+    \item \textbf{LogisticsRoute:} Agrupación de ventas para despacho asignadas a un conductor.
+\end{itemize}
+
+\subsection{Manual de Operación (Walkthrough)}
+
+\subsubsection{Ejecución del Entorno}
+Para iniciar el sistema en entorno local:
+
+\begin{enumerate}
+    \item Activar el entorno virtual:
+    \begin{verbatim}
+    source venv/bin/activate
+    \end{verbatim}
+    \item Ejecutar la aplicación Flask:
+    \begin{verbatim}
+    export FLASK_APP=run.py
+    flask run
+    \end{verbatim}
+\end{enumerate}
+La aplicación estará disponible en \texttt{http://127.0.0.1:5000/}.
+
+\subsubsection{Gestión de Base de Datos}
+La base de datos se encuentra en \texttt{instance/inventory.db}. Para actualizar el esquema ante nuevos cambios:
+\begin{verbatim}
+flask db migrate -m "Descripción"
+flask db upgrade
+\end{verbatim}
+
+\end{document}

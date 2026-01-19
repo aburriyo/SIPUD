@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Operaciones de Almacén{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-slate-900">Operaciones de Almacén</h1>
+    <p class="text-slate-600 mt-1">Gestiona pedidos, recepciones, mermas y vencimientos</p>
+</div>
+
+<!-- Quick Actions Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Pedidos a Proveedores -->
+    <a href="{{ url_for('warehouse.orders') }}"
+        class="bg-white rounded-xl shadow-sm border-2 border-slate-200 hover:border-indigo-400 hover:shadow-lg transition-all p-6 group">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 bg-indigo-50 rounded-lg group-hover:bg-indigo-100 transition-colors">
+                <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                </svg>
+            </div>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Pedidos a Proveedores</h3>
+        <p class="text-sm text-slate-600">Registra nuevos pedidos y gestiona órdenes de compra</p>
+    </a>
+
+    <!-- Recepción de Mercancía -->
+    <a href="{{ url_for('warehouse.receiving') }}"
+        class="bg-white rounded-xl shadow-sm border-2 border-slate-200 hover:border-emerald-400 hover:shadow-lg transition-all p-6 group">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 bg-emerald-50 rounded-lg group-hover:bg-emerald-100 transition-colors">
+                <svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                </svg>
+            </div>
+            {% if pending_orders %}
+            <span class="px-2 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full">
+                {{ pending_orders|length }}
+            </span>
+            {% endif %}
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Recepción de Mercancía</h3>
+        <p class="text-sm text-slate-600">Confirma llegada de productos y actualiza inventario</p>
+    </a>
+
+    <!-- Registro de Mermas -->
+    <a href="{{ url_for('warehouse.wastage') }}"
+        class="bg-white rounded-xl shadow-sm border-2 border-slate-200 hover:border-red-400 hover:shadow-lg transition-all p-6 group">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 bg-red-50 rounded-lg group-hover:bg-red-100 transition-colors">
+                <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+            </div>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Registro de Mermas</h3>
+        <p class="text-sm text-slate-600">Documenta pérdidas y productos dañados</p>
+    </a>
+
+    <!-- Gestión de Vencimientos -->
+    <a href="{{ url_for('warehouse.expiry') }}"
+        class="bg-white rounded-xl shadow-sm border-2 border-slate-200 hover:border-amber-400 hover:shadow-lg transition-all p-6 group">
+        <div class="flex items-center justify-between mb-4">
+            <div class="p-3 bg-amber-50 rounded-lg group-hover:bg-amber-100 transition-colors">
+                <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            {% if expiring_soon %}
+            <span class="px-2 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">
+                {{ expiring_soon|length }}
+            </span>
+            {% endif %}
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-2">Gestión de Vencimientos</h3>
+        <p class="text-sm text-slate-600">Administra fechas de vencimiento de productos</p>
+    </a>
+</div>
+
+<!-- Alerts Section -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Productos Próximos a Vencer -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                Productos Próximos a Vencer
+            </h2>
+        </div>
+        <div class="p-6">
+            {% if expiring_soon %}
+            <ul class="space-y-3">
+                {% for product in expiring_soon %}
+                <li class="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-slate-900">{{ product.name }}</p>
+                        <p class="text-xs text-slate-600">SKU: {{ product.sku }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-amber-700">
+                            {{ product.expiry_date.strftime('%d/%m/%Y') if product.expiry_date else '-' }}
+                        </p>
+                        <p class="text-xs text-slate-600">{{ product.total_stock }} unidades</p>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-center text-slate-500 py-8">No hay productos próximos a vencer</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stock Crítico -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                Productos con Stock Crítico
+            </h2>
+        </div>
+        <div class="p-6">
+            {% if low_stock %}
+            <ul class="space-y-3">
+                {% for product in low_stock %}
+                <li class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-slate-900">{{ product.name }}</p>
+                        <p class="text-xs text-slate-600">SKU: {{ product.sku }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-red-700">{{ product.total_stock }} unidades</p>
+                        <p class="text-xs text-slate-600">Crítico: {{ product.critical_stock }}</p>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-center text-slate-500 py-8">No hay productos con stock crítico</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
