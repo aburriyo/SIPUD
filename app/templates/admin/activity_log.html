@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}Monitor de Actividad{% endblock %}
+
+{% block content %}
+<div x-data="activityMonitor()" x-init="loadActivity()">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Monitor de Actividad</h1>
+            <p class="text-slate-500 text-sm mt-1">Registro de todas las acciones realizadas en el sistema</p>
+        </div>
+        <button @click="loadActivity()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Actualizar
+        </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-500">Acciones (24h)</p>
+                    <p class="text-2xl font-bold text-slate-800" x-text="stats.total_24h || 0"></p>
+                </div>
+                <div class="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-500">Creaciones</p>
+                    <p class="text-2xl font-bold text-green-600" x-text="stats.by_action?.create || 0"></p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-500">Actualizaciones</p>
+                    <p class="text-2xl font-bold text-blue-600" x-text="stats.by_action?.update || 0"></p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-500">Eliminaciones</p>
+                    <p class="text-2xl font-bold text-red-600" x-text="stats.by_action?.delete || 0"></p>
+                </div>
+                <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Módulo</label>
+                <select x-model="filters.module" @change="loadActivity()"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    <option value="">Todos</option>
+                    <option value="users">Usuarios</option>
+                    <option value="products">Productos</option>
+                    <option value="sales">Ventas</option>
+                    <option value="orders">Pedidos</option>
+                    <option value="wastage">Mermas</option>
+                    <option value="auth">Autenticación</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Acción</label>
+                <select x-model="filters.action" @change="loadActivity()"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                    <option value="">Todas</option>
+                    <option value="create">Crear</option>
+                    <option value="update">Actualizar</option>
+                    <option value="delete">Eliminar</option>
+                    <option value="login">Login</option>
+                    <option value="logout">Logout</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Desde</label>
+                <input type="date" x-model="filters.date_from" @change="loadActivity()"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Hasta</label>
+                <input type="date" x-model="filters.date_to" @change="loadActivity()"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+            </div>
+
+            <div class="flex items-end">
+                <button @click="clearFilters()"
+                    class="w-full px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-300">
+                    Limpiar Filtros
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Log Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Fecha/Hora</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Usuario</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Acción</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Módulo</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Descripción</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">IP</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <template x-for="log in logs" :key="log.id">
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4 text-sm text-slate-500 whitespace-nowrap" x-text="log.created_at"></td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                                        <span class="text-slate-600 font-medium text-xs" x-text="log.user_name?.charAt(0).toUpperCase() || '?'"></span>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-800" x-text="log.user_name"></p>
+                                        <p class="text-xs text-slate-500" x-text="getRoleName(log.user_role)"></p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                    :class="getActionClass(log.action)"
+                                    x-text="getActionName(log.action)"></span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800"
+                                    x-text="getModuleName(log.module)"></span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-slate-600 max-w-xs truncate" x-text="log.description || '-'" :title="log.description"></td>
+                            <td class="px-6 py-4 text-sm text-slate-500 font-mono" x-text="log.ip_address || '-'"></td>
+                        </tr>
+                    </template>
+                    <tr x-show="logs.length === 0">
+                        <td colspan="6" class="px-6 py-12 text-center text-slate-500">
+                            <svg class="w-12 h-12 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                            </svg>
+                            <p>No hay registros de actividad</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+            <p class="text-sm text-slate-500">
+                Mostrando página <span x-text="pagination.current_page"></span> de <span x-text="pagination.pages"></span>
+                (<span x-text="pagination.total"></span> registros)
+            </p>
+            <div class="flex gap-2">
+                <button @click="prevPage()" :disabled="pagination.current_page <= 1"
+                    class="px-3 py-1 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Anterior
+                </button>
+                <button @click="nextPage()" :disabled="pagination.current_page >= pagination.pages"
+                    class="px-3 py-1 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Siguiente
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function activityMonitor() {
+    return {
+        logs: [],
+        stats: {},
+        filters: {
+            module: '',
+            action: '',
+            date_from: '',
+            date_to: ''
+        },
+        pagination: {
+            current_page: 1,
+            pages: 1,
+            total: 0
+        },
+
+        async loadActivity() {
+            try {
+                // Build query params
+                const params = new URLSearchParams();
+                params.append('page', this.pagination.current_page);
+                if (this.filters.module) params.append('module', this.filters.module);
+                if (this.filters.action) params.append('action', this.filters.action);
+                if (this.filters.date_from) params.append('date_from', this.filters.date_from);
+                if (this.filters.date_to) params.append('date_to', this.filters.date_to);
+
+                const response = await fetch(`/admin/api/activity?${params}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    this.logs = data.logs;
+                    this.pagination = {
+                        current_page: data.current_page,
+                        pages: data.pages,
+                        total: data.total
+                    };
+                }
+
+                // Load stats
+                this.loadStats();
+            } catch (error) {
+                console.error('Error loading activity:', error);
+            }
+        },
+
+        async loadStats() {
+            try {
+                const response = await fetch('/admin/api/activity/stats');
+                const data = await response.json();
+                if (data.success) {
+                    this.stats = data;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        },
+
+        clearFilters() {
+            this.filters = { module: '', action: '', date_from: '', date_to: '' };
+            this.pagination.current_page = 1;
+            this.loadActivity();
+        },
+
+        prevPage() {
+            if (this.pagination.current_page > 1) {
+                this.pagination.current_page--;
+                this.loadActivity();
+            }
+        },
+
+        nextPage() {
+            if (this.pagination.current_page < this.pagination.pages) {
+                this.pagination.current_page++;
+                this.loadActivity();
+            }
+        },
+
+        getRoleName(role) {
+            const names = {
+                'admin': 'Administrador',
+                'manager': 'Gerente',
+                'warehouse': 'Bodega',
+                'sales': 'Ventas'
+            };
+            return names[role] || role;
+        },
+
+        getActionName(action) {
+            const names = {
+                'create': 'Crear',
+                'update': 'Actualizar',
+                'delete': 'Eliminar',
+                'login': 'Login',
+                'logout': 'Logout',
+                'activate': 'Activar',
+                'receive': 'Recibir'
+            };
+            return names[action] || action;
+        },
+
+        getActionClass(action) {
+            const classes = {
+                'create': 'bg-green-100 text-green-800',
+                'update': 'bg-blue-100 text-blue-800',
+                'delete': 'bg-red-100 text-red-800',
+                'login': 'bg-purple-100 text-purple-800',
+                'logout': 'bg-slate-100 text-slate-800',
+                'activate': 'bg-emerald-100 text-emerald-800',
+                'receive': 'bg-amber-100 text-amber-800'
+            };
+            return classes[action] || 'bg-slate-100 text-slate-800';
+        },
+
+        getModuleName(module) {
+            const names = {
+                'users': 'Usuarios',
+                'products': 'Productos',
+                'sales': 'Ventas',
+                'orders': 'Pedidos',
+                'wastage': 'Mermas',
+                'auth': 'Autenticación'
+            };
+            return names[module] || module;
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div x-data="usersManager()" x-init="loadUsers()">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Gestión de Usuarios</h1>
+            <p class="text-slate-500 text-sm mt-1">Administra los usuarios del sistema y sus permisos</p>
+        </div>
+        {% if current_user.has_permission('users', 'create') %}
+        <button @click="openCreateModal()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors shadow-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            Nuevo Usuario
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Usuario</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Email</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Rol</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Estado</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Último Acceso</th>
+                        <th class="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <template x-for="user in users" :key="user.id">
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                                        <span class="text-primary-700 font-semibold text-sm" x-text="user.username.charAt(0).toUpperCase()"></span>
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-slate-800" x-text="user.full_name || user.username"></p>
+                                        <p class="text-sm text-slate-500" x-text="'@' + user.username"></p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-slate-600" x-text="user.email || '-'"></td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                    :class="{
+                                        'bg-purple-100 text-purple-800': user.role === 'admin',
+                                        'bg-blue-100 text-blue-800': user.role === 'manager',
+                                        'bg-green-100 text-green-800': user.role === 'warehouse',
+                                        'bg-amber-100 text-amber-800': user.role === 'sales'
+                                    }"
+                                    x-text="getRoleName(user.role)"></span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                    :class="user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="user.is_active ? 'bg-green-500' : 'bg-red-500'"></span>
+                                    <span x-text="user.is_active ? 'Activo' : 'Inactivo'"></span>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-slate-500" x-text="user.last_login || 'Nunca'"></td>
+                            <td class="px-6 py-4 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    {% if current_user.has_permission('users', 'edit') %}
+                                    <button @click="openEditModal(user)"
+                                        class="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                                        title="Editar">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                        </svg>
+                                    </button>
+                                    {% endif %}
+                                    {% if current_user.has_permission('users', 'delete') %}
+                                    <button @click="toggleUserStatus(user)"
+                                        class="p-2 rounded-lg transition-colors"
+                                        :class="user.is_active ? 'text-slate-400 hover:text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'"
+                                        :title="user.is_active ? 'Desactivar' : 'Activar'">
+                                        <svg x-show="user.is_active" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                                        </svg>
+                                        <svg x-show="!user.is_active" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create/Edit Modal -->
+    <div x-show="showModal" x-cloak
+        class="fixed inset-0 z-50 overflow-y-auto"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-slate-900/50" @click="showModal = false"></div>
+            <div class="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 scale-95"
+                x-transition:enter-end="opacity-100 scale-100">
+                <h3 class="text-lg font-semibold text-slate-800 mb-4" x-text="editingUser ? 'Editar Usuario' : 'Nuevo Usuario'"></h3>
+
+                <form @submit.prevent="saveUser()">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Nombre de Usuario</label>
+                            <input type="text" x-model="form.username" :disabled="editingUser"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-slate-100"
+                                required minlength="3">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
+                            <input type="text" x-model="form.full_name"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                            <input type="email" x-model="form.email"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Rol</label>
+                            <select x-model="form.role"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                {% for role in roles %}
+                                <option value="{{ role }}">{{ role|capitalize }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">
+                                <span x-text="editingUser ? 'Nueva Contraseña (dejar vacío para no cambiar)' : 'Contraseña'"></span>
+                            </label>
+                            <input type="password" x-model="form.password"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                :required="!editingUser" minlength="4">
+                        </div>
+
+                        <div x-show="editingUser" class="flex items-center gap-2">
+                            <input type="checkbox" x-model="form.is_active" id="is_active"
+                                class="rounded border-slate-300 text-primary-600 focus:ring-primary-500">
+                            <label for="is_active" class="text-sm text-slate-700">Usuario Activo</label>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" @click="showModal = false"
+                            class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+                            <span x-text="editingUser ? 'Guardar Cambios' : 'Crear Usuario'"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div x-show="toast.show" x-cloak
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 translate-y-2"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 translate-y-2"
+        class="fixed bottom-4 right-4 z-50">
+        <div class="flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg"
+            :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'">
+            <span x-text="toast.message"></span>
+            <button @click="toast.show = false" class="hover:opacity-75">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function usersManager() {
+    return {
+        users: [],
+        showModal: false,
+        editingUser: null,
+        form: {
+            username: '',
+            full_name: '',
+            email: '',
+            role: 'sales',
+            password: '',
+            is_active: true
+        },
+        toast: {
+            show: false,
+            message: '',
+            type: 'success'
+        },
+
+        async loadUsers() {
+            try {
+                const response = await fetch('/admin/api/users');
+                const data = await response.json();
+                if (data.success) {
+                    this.users = data.users;
+                }
+            } catch (error) {
+                this.showToast('Error al cargar usuarios', 'error');
+            }
+        },
+
+        getRoleName(role) {
+            const names = {
+                'admin': 'Administrador',
+                'manager': 'Gerente',
+                'warehouse': 'Bodega',
+                'sales': 'Ventas'
+            };
+            return names[role] || role;
+        },
+
+        openCreateModal() {
+            this.editingUser = null;
+            this.form = {
+                username: '',
+                full_name: '',
+                email: '',
+                role: 'sales',
+                password: '',
+                is_active: true
+            };
+            this.showModal = true;
+        },
+
+        openEditModal(user) {
+            this.editingUser = user;
+            this.form = {
+                username: user.username,
+                full_name: user.full_name || '',
+                email: user.email || '',
+                role: user.role,
+                password: '',
+                is_active: user.is_active
+            };
+            this.showModal = true;
+        },
+
+        async saveUser() {
+            try {
+                const url = this.editingUser
+                    ? `/admin/api/users/${this.editingUser.id}`
+                    : '/admin/api/users';
+                const method = this.editingUser ? 'PUT' : 'POST';
+
+                const payload = { ...this.form };
+                if (this.editingUser && !payload.password) {
+                    delete payload.password;
+                }
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.showToast(data.message || 'Operación exitosa', 'success');
+                    this.showModal = false;
+                    this.loadUsers();
+                } else {
+                    this.showToast(data.error || 'Error en la operación', 'error');
+                }
+            } catch (error) {
+                this.showToast('Error de conexión', 'error');
+            }
+        },
+
+        async toggleUserStatus(user) {
+            const action = user.is_active ? 'desactivar' : 'activar';
+            if (!confirm(`¿Estás seguro de ${action} al usuario "${user.username}"?`)) {
+                return;
+            }
+
+            try {
+                const url = user.is_active
+                    ? `/admin/api/users/${user.id}`
+                    : `/admin/api/users/${user.id}/activate`;
+                const method = user.is_active ? 'DELETE' : 'POST';
+
+                const response = await fetch(url, { method: method });
+                const data = await response.json();
+
+                if (data.success) {
+                    this.showToast(data.message, 'success');
+                    this.loadUsers();
+                } else {
+                    this.showToast(data.error, 'error');
+                }
+            } catch (error) {
+                this.showToast('Error de conexión', 'error');
+            }
+        },
+
+        showToast(message, type = 'success') {
+            this.toast = { show: true, message, type };
+            setTimeout(() => { this.toast.show = false; }, 3000);
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,14 +1,31 @@
-from flask import Blueprint, jsonify, request, g
-from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance
+from flask import Blueprint, jsonify, request, g, abort
+from flask_login import current_user, login_required
+from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from bson import ObjectId
 from mongoengine import DoesNotExist
+from functools import wraps
 
 bp = Blueprint('api', __name__, url_prefix='/api')
 
 
+def permission_required(module, action='view'):
+    """Decorator to check permissions before accessing a route"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                abort(401)
+            if not current_user.has_permission(module, action):
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 @bp.route('/products', methods=['GET'])
+@login_required
 def get_products():
     tenant = g.current_tenant
     products = Product.objects(tenant=tenant)
@@ -28,6 +45,8 @@ def get_products():
 
 
 @bp.route('/products', methods=['POST'])
+@login_required
+@permission_required('products', 'create')
 def create_product():
     data = request.get_json()
     tenant = g.current_tenant
@@ -63,12 +82,26 @@ def create_product():
                 )
                 bundle_item.save()
 
+        # Log activity
+        ActivityLog.log(
+            user=current_user,
+            action='create',
+            module='products',
+            description=f'Creó producto "{data["name"]}" (SKU: {data["sku"]})',
+            target_id=str(new_product.id),
+            target_type='Product',
+            request=request,
+            tenant=tenant
+        )
+
         return jsonify({'message': 'Producto creado', 'id': str(new_product.id)}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @bp.route('/products/<id>', methods=['DELETE'])
+@login_required
+@permission_required('products', 'delete')
 def delete_product(id):
     tenant = g.current_tenant
     try:
@@ -77,6 +110,9 @@ def delete_product(id):
         return jsonify({'error': 'Producto no encontrado'}), 404
 
     try:
+        product_name = product.name
+        product_sku = product.sku
+
         # Delete associated lots first
         Lot.objects(product=product).delete()
 
@@ -86,12 +122,27 @@ def delete_product(id):
 
         # Delete the product
         product.delete()
+
+        # Log activity
+        ActivityLog.log(
+            user=current_user,
+            action='delete',
+            module='products',
+            description=f'Eliminó producto "{product_name}" (SKU: {product_sku})',
+            target_id=id,
+            target_type='Product',
+            request=request,
+            tenant=tenant
+        )
+
         return jsonify({'message': 'Producto eliminado correctamente'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @bp.route('/products/<id>', methods=['PUT'])
+@login_required
+@permission_required('products', 'edit')
 def update_product(id):
     tenant = g.current_tenant
     try:
@@ -100,9 +151,11 @@ def update_product(id):
         return jsonify({'error': 'Producto no encontrado'}), 404
 
     data = request.get_json()
+    changes = []
 
     try:
-        if 'name' in data:
+        if 'name' in data and data['name'] != product.name:
+            changes.append(f'nombre: {product.name} → {data["name"]}')
             product.name = data['name']
         if 'sku' in data:
             # Check unique SKU if changing
@@ -110,14 +163,19 @@ def update_product(id):
                 existing = Product.objects(sku=data['sku'], tenant=tenant).first()
                 if existing:
                     return jsonify({'error': 'El SKU ya existe'}), 400
+                changes.append(f'SKU: {product.sku} → {data["sku"]}')
             product.sku = data['sku']
-        if 'description' in data:
+        if 'description' in data and data.get('description') != product.description:
+            changes.append('descripción actualizada')
             product.description = data['description']
-        if 'category' in data:
+        if 'category' in data and data.get('category') != product.category:
+            changes.append(f'categoría: {product.category} → {data["category"]}')
             product.category = data['category']
-        if 'base_price' in data:
+        if 'base_price' in data and float(data.get('base_price', 0)) != float(product.base_price or 0):
+            changes.append(f'precio: {product.base_price} → {data["base_price"]}')
             product.base_price = data['base_price']
-        if 'critical_stock' in data:
+        if 'critical_stock' in data and data.get('critical_stock') != product.critical_stock:
+            changes.append(f'stock crítico: {product.critical_stock} → {data["critical_stock"]}')
             product.critical_stock = data['critical_stock']
 
         # Handle bundle components update
@@ -133,14 +191,31 @@ def update_product(id):
                     tenant=tenant
                 )
                 bundle_item.save()
+            changes.append('componentes de bundle actualizados')
 
         product.save()
+
+        # Log activity
+        if changes:
+            ActivityLog.log(
+                user=current_user,
+                action='update',
+                module='products',
+                description=f'Actualizó producto "{product.name}": {", ".join(changes)}',
+                target_id=id,
+                target_type='Product',
+                details={'changes': changes},
+                request=request,
+                tenant=tenant
+            )
+
         return jsonify({'message': 'Producto actualizado'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @bp.route('/sales', methods=['GET'])
+@login_required
 def get_sales():
     tenant = g.current_tenant
     page = request.args.get('page', 1, type=int)
@@ -201,6 +276,7 @@ def get_sales():
 
 
 @bp.route('/dashboard', methods=['GET'])
+@login_required
 def get_dashboard_stats():
     tenant = g.current_tenant
     range_type = request.args.get('range', 'last_7')
@@ -311,6 +387,7 @@ def get_dashboard_stats():
 
 
 @bp.route('/products/<id>', methods=['GET'])
+@login_required
 def get_product(id):
     tenant = g.current_tenant
     try:
@@ -343,6 +420,7 @@ def get_product(id):
 
 
 @bp.route('/sales/<id>', methods=['GET'])
+@login_required
 def get_sale(id):
     tenant = g.current_tenant
     try:
@@ -361,20 +439,59 @@ def get_sale(id):
             'unit_price': float(item.unit_price),
             'subtotal': subtotal
         })
+
+    # Obtener historial de pagos
+    payments = Payment.objects(sale=sale).order_by('-date_created')
+    payments_list = []
+    for p in payments:
+        payments_list.append({
+            'id': str(p.id),
+            'amount': float(p.amount),
+            'payment_via': p.payment_via,
+            'payment_reference': p.payment_reference or '',
+            'notes': p.notes or '',
+            'date_created': p.date_created.strftime('%Y-%m-%d %H:%M'),
+            'created_by': p.created_by.full_name if p.created_by else 'Sistema'
+        })
+
     return jsonify({
         'id': str(sale.id),
         'customer': sale.customer_name,
         'address': sale.address,
         'phone': sale.phone,
+
+        # Tipo de venta
+        'sale_type': sale.sale_type or 'con_despacho',
+
+        # Delivery
+        'delivery_status': sale.delivery_status or 'pendiente',
+        'delivery_observations': sale.delivery_observations or '',
+        'date_delivered': sale.date_delivered.strftime('%Y-%m-%d %H:%M') if sale.date_delivered else None,
+
+        # Payment summary
+        'payment_status': sale.payment_status or 'pendiente',
+        'total': total,
+        'total_paid': float(sale.total_paid),
+        'balance_pending': float(sale.balance_pending),
+
+        # Historial de pagos
+        'payments': payments_list,
+
+        # Items
+        'items': items,
+
+        # Legacy fields
         'status': sale.status,
         'payment_method': sale.payment_method,
-        'items': items,
-        'total': total,
-        'date': sale.date_created.strftime('%Y-%m-%d %H:%M')
+
+        # Dates
+        'date_created': sale.date_created.strftime('%Y-%m-%d %H:%M')
     })
 
 
 @bp.route('/sales', methods=['POST'])
+@login_required
+@permission_required('sales', 'create')
 def create_sale():
     tenant = g.current_tenant
     data = request.get_json()
@@ -382,13 +499,41 @@ def create_sale():
     if not data or 'customer' not in data:
         return jsonify({'error': 'Faltan datos requeridos (customer)'}), 400
 
+    # Track modified lots for rollback
+    modified_lots = []  # List of (lot, original_quantity) tuples
+
+    def rollback_stock():
+        """Restore stock to all modified lots"""
+        for lot, original_qty in modified_lots:
+            lot.quantity_current = original_qty
+            lot.save()
+
     try:
+        # Determinar tipo de venta
+        sale_type = data.get('sale_type', 'con_despacho')
+
+        # Lógica automática según tipo de venta
+        if sale_type == 'en_local':
+            # Venta en local: automáticamente entregada
+            delivery_status = 'entregado'
+            date_delivered = datetime.utcnow()
+        else:
+            # Venta con despacho: pendiente por defecto
+            delivery_status = data.get('delivery_status', 'pendiente')
+            date_delivered = None
+
         new_sale = Sale(
             customer_name=data['customer'],
             address=data.get('address', ''),
+            phone=data.get('phone', ''),
+            sale_type=sale_type,
+            delivery_status=delivery_status,
+            delivery_observations=data.get('delivery_observations', ''),
+            date_delivered=date_delivered,
+            payment_status='pendiente',
+            # Legacy fields (for backward compatibility)
             payment_method=data.get('payment_method', 'Efectivo'),
             payment_confirmed=data.get('payment_confirmed', False),
-            delivery_status=data.get('delivery_status', 'pending'),
             status='pending',
             tenant=tenant
         )
@@ -410,6 +555,7 @@ def create_sale():
 
             # Validate stock
             if product.total_stock < quantity:
+                rollback_stock()
                 new_sale.delete()
                 return jsonify({
                     'error': f'Stock insuficiente para {product.name}. Disponible: {product.total_stock}, Solicitado: {quantity}'
@@ -425,12 +571,15 @@ def create_sale():
             for lot in available_lots:
                 if remaining_to_deduct <= 0:
                     break
+                # Track original quantity before modification
+                modified_lots.append((lot, lot.quantity_current))
                 deduct = min(lot.quantity_current, remaining_to_deduct)
                 lot.quantity_current -= deduct
                 remaining_to_deduct -= deduct
                 lot.save()
 
             if remaining_to_deduct > 0:
+                rollback_stock()
                 new_sale.delete()
                 return jsonify({'error': f'Error de consistencia de inventario para {product.name}'}), 400
 
@@ -447,6 +596,7 @@ def create_sale():
 
                 # Check if component has enough stock
                 if component_product.total_stock < total_component_qty:
+                    rollback_stock()
                     new_sale.delete()
                     return jsonify({
                         'error': f'Stock insuficiente del componente "{component_product.name}" en el bundle "{product.name}". Disponible: {component_product.total_stock}, Necesario: {total_component_qty}'
@@ -462,12 +612,15 @@ def create_sale():
                 for lot in available_component_lots:
                     if remaining_component <= 0:
                         break
+                    # Track original quantity before modification
+                    modified_lots.append((lot, lot.quantity_current))
                     deduct = min(lot.quantity_current, remaining_component)
                     lot.quantity_current -= deduct
                     remaining_component -= deduct
                     lot.save()
 
                 if remaining_component > 0:
+                    rollback_stock()
                     new_sale.delete()
                     return jsonify({
                         'error': f'Error de consistencia de inventario para componente {component_product.name}'
@@ -481,9 +634,240 @@ def create_sale():
             )
             sale_item.save()
 
+        # Calculate total for logging
+        total = sum(item.quantity * float(item.unit_price) for item in new_sale.items)
+        items_count = new_sale.items.count()
+
+        # Registrar pago inicial si existe
+        if 'initial_payment' in data and data['initial_payment'].get('amount', 0) > 0:
+            initial_payment = data['initial_payment']
+            payment_amount = float(initial_payment['amount'])
+
+            # Validar que no exceda el total
+            if payment_amount > total:
+                rollback_stock()
+                new_sale.delete()
+                return jsonify({
+                    'error': f'El pago inicial (${payment_amount:,.0f}) no puede ser mayor al total de la venta (${total:,.0f})'
+                }), 400
+
+            # Crear registro de pago
+            payment = Payment(
+                sale=new_sale,
+                tenant=tenant,
+                amount=payment_amount,
+                payment_via=initial_payment.get('payment_via', 'efectivo'),
+                payment_reference=initial_payment.get('payment_reference', ''),
+                notes='Pago inicial',
+                created_by=current_user
+            )
+            payment.save()
+
+            # Actualizar payment_status
+            new_sale.payment_status = new_sale.computed_payment_status
+            new_sale.save()
+
+        # Log activity
+        ActivityLog.log(
+            user=current_user,
+            action='create',
+            module='sales',
+            description=f'Creó venta para "{data["customer"]}" - {items_count} items, total ${total:,.0f}',
+            target_id=str(new_sale.id),
+            target_type='Sale',
+            request=request,
+            tenant=tenant
+        )
+
         return jsonify({'message': 'Venta creada', 'id': str(new_sale.id)}), 201
     except Exception as e:
+        # Rollback stock on any unexpected error
+        rollback_stock()
+        if 'new_sale' in locals() and new_sale.id:
+            try:
+                new_sale.delete()
+            except:
+                pass
         return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/sales/<id>', methods=['PUT'])
+@login_required
+@permission_required('sales', 'edit')
+def update_sale(id):
+    """Actualizar estado de una venta (incluyendo cancelación)"""
+    tenant = g.current_tenant
+    try:
+        sale = Sale.objects.get(id=ObjectId(id), tenant=tenant)
+    except DoesNotExist:
+        return jsonify({'error': 'Venta no encontrada'}), 404
+
+    data = request.get_json()
+    changes = []
+
+    try:
+        # Validación: Ventas en local no pueden cambiar estado de entrega
+        if sale.sale_type == 'en_local' and 'delivery_status' in data:
+            if data['delivery_status'] != 'entregado':
+                return jsonify({'error': 'Las ventas en local deben estar siempre entregadas'}), 400
+
+        # Actualizar delivery_status
+        if 'delivery_status' in data and data['delivery_status'] != sale.delivery_status:
+            old_delivery = sale.delivery_status
+            new_delivery = data['delivery_status']
+
+            # Auto-set date_delivered cuando se marca como entregado o con observaciones
+            if new_delivery in ['entregado', 'con_observaciones'] and not sale.date_delivered:
+                sale.date_delivered = datetime.utcnow()
+
+            changes.append(f'estado entrega: {old_delivery} → {new_delivery}')
+            sale.delivery_status = new_delivery
+
+            # Sincronizar con status legacy
+            sale.status = sale.computed_status
+
+        # Actualizar delivery_observations
+        if 'delivery_observations' in data:
+            old_obs = sale.delivery_observations or ''
+            new_obs = data['delivery_observations']
+            if new_obs != old_obs:
+                changes.append('observaciones actualizadas')
+                sale.delivery_observations = new_obs
+
+        # Legacy fields (mantener compatibilidad)
+        if 'status' in data and data['status'] != sale.status:
+            valid_statuses = ['pending', 'assigned', 'in_transit', 'delivered', 'cancelled']
+            if data['status'] not in valid_statuses:
+                return jsonify({'error': f'Estado inválido. Estados válidos: {valid_statuses}'}), 400
+            changes.append(f'estado: {sale.status} → {data["status"]}')
+            sale.status = data['status']
+
+        if 'payment_confirmed' in data:
+            if sale.payment_confirmed != data['payment_confirmed']:
+                changes.append(f'pago confirmado: {sale.payment_confirmed} → {data["payment_confirmed"]}')
+            sale.payment_confirmed = data['payment_confirmed']
+
+        sale.save()
+
+        # Log activity
+        if changes:
+            action = 'cancel' if data.get('status') == 'cancelled' else 'update'
+            ActivityLog.log(
+                user=current_user,
+                action=action,
+                module='sales',
+                description=f'{"Canceló" if action == "cancel" else "Actualizó"} venta de "{sale.customer_name}": {", ".join(changes)}',
+                target_id=id,
+                target_type='Sale',
+                details={'changes': changes, 'customer': sale.customer_name},
+                request=request,
+                tenant=tenant
+            )
+
+        return jsonify({'success': True, 'message': 'Venta actualizada'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/sales/<id>/payments', methods=['POST'])
+@login_required
+@permission_required('sales', 'edit')
+def add_payment(id):
+    """Registra un nuevo pago/abono para una venta"""
+    tenant = g.current_tenant
+    data = request.get_json()
+
+    # Validar venta existe
+    try:
+        sale = Sale.objects.get(id=ObjectId(id), tenant=tenant)
+    except DoesNotExist:
+        return jsonify({'error': 'Venta no encontrada'}), 404
+
+    # Validar monto
+    amount = data.get('amount')
+    if not amount or amount <= 0:
+        return jsonify({'error': 'Monto inválido'}), 400
+
+    # Validar que no exceda el total
+    total_paid = sale.total_paid + amount
+    if total_paid > sale.total_amount:
+        return jsonify({
+            'error': f'El monto total de pagos (${total_paid:,.0f}) excede el total de la venta (${sale.total_amount:,.0f})'
+        }), 400
+
+    try:
+        # Crear Payment
+        payment = Payment(
+            sale=sale,
+            tenant=tenant,
+            amount=amount,
+            payment_via=data.get('payment_via', 'efectivo'),
+            payment_reference=data.get('payment_reference', ''),
+            notes=data.get('notes', ''),
+            created_by=current_user
+        )
+        payment.save()
+
+        # Actualizar payment_status en Sale
+        sale.payment_status = sale.computed_payment_status
+        sale.save()
+
+        # Log activity
+        ActivityLog.log(
+            user=current_user,
+            action='create',
+            module='sales',
+            description=f'Registró pago de ${amount:,.0f} ({data.get("payment_via")}) para venta de "{sale.customer_name}"',
+            target_id=str(payment.id),
+            target_type='Payment',
+            details={
+                'sale_id': str(sale.id),
+                'amount': float(amount),
+                'via': data.get('payment_via'),
+                'balance_pending': float(sale.balance_pending)
+            },
+            request=request,
+            tenant=tenant
+        )
+
+        return jsonify({
+            'success': True,
+            'message': 'Pago registrado',
+            'payment_id': str(payment.id),
+            'balance_pending': float(sale.balance_pending),
+            'payment_status': sale.payment_status
+        }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/sales/<id>/payments', methods=['GET'])
+@login_required
+def get_sale_payments(id):
+    """Obtiene historial de pagos de una venta"""
+    tenant = g.current_tenant
+
+    try:
+        sale = Sale.objects.get(id=ObjectId(id), tenant=tenant)
+    except DoesNotExist:
+        return jsonify({'error': 'Venta no encontrada'}), 404
+
+    payments = Payment.objects(sale=sale).order_by('-date_created')
+
+    return jsonify({
+        'success': True,
+        'payments': [{
+            'id': str(p.id),
+            'amount': float(p.amount),
+            'payment_via': p.payment_via,
+            'payment_reference': p.payment_reference or '',
+            'notes': p.notes or '',
+            'date_created': p.date_created.strftime('%Y-%m-%d %H:%M'),
+            'created_by': p.created_by.full_name if p.created_by else 'Sistema'
+        } for p in payments],
+        'total_paid': float(sale.total_paid),
+        'balance_pending': float(sale.balance_pending)
+    })
 
 
 # Fleet Management APIs

@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión - Inventario 2026</title>
+    <title>Iniciar Sesión - Puerto Distribución</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -11,16 +12,16 @@
                 extend: {
                     colors: {
                         primary: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            200: '#bfdbfe',
-                            300: '#93c5fd',
-                            400: '#60a5fa',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
-                            800: '#1e40af',
-                            900: '#1e3a8a',
+                            50: '#fff7ed',
+                            100: '#ffedd5',
+                            200: '#fed7aa',
+                            300: '#fdba74',
+                            400: '#fb923c',
+                            500: '#C85103',
+                            600: '#b34903',
+                            700: '#9a3412',
+                            800: '#7c2d12',
+                            900: '#431407',
                         }
                     }
                 }
@@ -28,25 +29,31 @@
         }
     </script>
 </head>
-<body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
+
+<body class="bg-gradient-to-br from-orange-50 to-amber-100 min-h-screen">
     <div class="min-h-screen flex items-center justify-center p-4">
-        <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            
+        <div class="max-w-md w-full">
+
             <!-- Login Form -->
-            <div class="bg-white rounded-2xl shadow-xl p-8 lg:p-10">
+            <div class="bg-white rounded-2xl shadow-xl p-8 lg:p-10 border-t-4 border-primary-500">
                 <div class="mb-8 text-center">
-                    <h1 class="text-4xl font-bold text-slate-900 mb-2">Inventario 2026</h1>
-                    <p class="text-slate-600">Sistema de Gestión Integral</p>
+                    <div
+                        class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center shadow-lg">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="h-12 w-auto">
+                    </div>
+                    <h1 class="text-2xl font-bold text-slate-900 mb-1">Puerto Distribución</h1>
+                    <p class="text-primary-600 font-semibold">Sistema de Inventario</p>
                 </div>
 
                 {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                        <div class="mb-4 p-4 rounded-lg {{ 'bg-red-50 text-red-800 border border-red-200' if category == 'error' else 'bg-blue-50 text-blue-800 border border-blue-200' }}">
-                            {{ message }}
-                        </div>
-                        {% endfor %}
-                    {% endif %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div
+                    class="mb-4 p-4 rounded-lg {{ 'bg-red-50 text-red-800 border border-red-200' if category == 'error' else 'bg-blue-50 text-blue-800 border border-blue-200' }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
                 {% endwith %}
 
                 <form method="POST" action="{{ url_for('auth.login') }}" class="space-y-6">
@@ -54,11 +61,7 @@
                         <label for="username" class="block text-sm font-semibold text-slate-700 mb-2">
                             Usuario
                         </label>
-                        <input 
-                            type="text" 
-                            id="username" 
-                            name="username" 
-                            required
+                        <input type="text" id="username" name="username" required
                             class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base"
                             placeholder="Ingresa tu usuario">
                     </div>
@@ -67,141 +70,62 @@
                         <label for="password" class="block text-sm font-semibold text-slate-700 mb-2">
                             Contraseña
                         </label>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
-                            required
-                            class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base"
-                            placeholder="Ingresa tu contraseña">
+                        <div class="relative">
+                            <input type="password" id="password" name="password" required
+                                class="w-full px-4 py-3 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base"
+                                placeholder="Ingresa tu contraseña">
+                            <button type="button" onclick="togglePassword()"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                                <svg id="icon-eye" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                <svg id="icon-eye-off" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L6.59 6.59m7.532 7.532l3.29 3.29M3 3l18 18"></path>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
-                    <button 
-                        type="submit"
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="remember"
+                                   class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500">
+                            <span class="text-sm text-slate-600">Recordarme por 30 días</span>
+                        </label>
+                        <a href="{{ url_for('auth.forgot_password') }}"
+                           class="text-sm text-primary-600 hover:text-primary-700 hover:underline">
+                            ¿Olvidaste tu contraseña?
+                        </a>
+                    </div>
+
+                    <button type="submit"
                         class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors shadow-lg hover:shadow-xl">
                         Iniciar Sesión
                     </button>
                 </form>
             </div>
-
-            <!-- Test Credentials Panel -->
-            <div class="bg-white rounded-2xl shadow-xl p-8 lg:p-10">
-                <div class="mb-6">
-                    <h2 class="text-2xl font-bold text-slate-900 mb-2">Credenciales de Prueba</h2>
-                    <p class="text-slate-600 text-sm">Haz clic en cualquier usuario para copiar sus credenciales</p>
-                </div>
-
-                <div class="space-y-4">
-                    <!-- Admin -->
-                    <div class="border-2 border-purple-200 rounded-xl p-4 hover:border-purple-400 transition-all cursor-pointer hover:shadow-md"
-                         onclick="copyCredentials('admin', 'admin123')">
-                        <div class="flex items-start gap-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="font-bold text-slate-900 text-lg">Administrador</h3>
-                                <p class="text-sm text-slate-600 mb-2">Acceso total al sistema</p>
-                                <div class="flex gap-4 text-xs">
-                                    <span class="font-mono bg-purple-50 text-purple-700 px-2 py-1 rounded">admin</span>
-                                    <span class="font-mono bg-purple-50 text-purple-700 px-2 py-1 rounded">admin123</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Manager -->
-                    <div class="border-2 border-blue-200 rounded-xl p-4 hover:border-blue-400 transition-all cursor-pointer hover:shadow-md"
-                         onclick="copyCredentials('gerente', 'gerente123')">
-                        <div class="flex items-start gap-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="font-bold text-slate-900 text-lg">Gerente</h3>
-                                <p class="text-sm text-slate-600 mb-2">Gestión operativa completa</p>
-                                <div class="flex gap-4 text-xs">
-                                    <span class="font-mono bg-blue-50 text-blue-700 px-2 py-1 rounded">gerente</span>
-                                    <span class="font-mono bg-blue-50 text-blue-700 px-2 py-1 rounded">gerente123</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Warehouse -->
-                    <div class="border-2 border-amber-200 rounded-xl p-4 hover:border-amber-400 transition-all cursor-pointer hover:shadow-md"
-                         onclick="copyCredentials('bodega', 'bodega123')">
-                        <div class="flex items-start gap-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                                </svg>
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="font-bold text-slate-900 text-lg">Bodeguero</h3>
-                                <p class="text-sm text-slate-600 mb-2">Operaciones de almacén</p>
-                                <div class="flex gap-4 text-xs">
-                                    <span class="font-mono bg-amber-50 text-amber-700 px-2 py-1 rounded">bodega</span>
-                                    <span class="font-mono bg-amber-50 text-amber-700 px-2 py-1 rounded">bodega123</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Sales -->
-                    <div class="border-2 border-emerald-200 rounded-xl p-4 hover:border-emerald-400 transition-all cursor-pointer hover:shadow-md"
-                         onclick="copyCredentials('vendedor', 'vendedor123')">
-                        <div class="flex items-start gap-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                </svg>
-                            </div>
-                            <div class="flex-1">
-                                <h3 class="font-bold text-slate-900 text-lg">Vendedor</h3>
-                                <p class="text-sm text-slate-600 mb-2">Ventas y logística</p>
-                                <div class="flex gap-4 text-xs">
-                                    <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-1 rounded">vendedor</span>
-                                    <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-1 rounded">vendedor123</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <p class="text-xs text-slate-600 text-center">
-                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        Haz clic en cualquier tarjeta para autocompletar el formulario
-                    </p>
-                </div>
-            </div>
         </div>
     </div>
-
     <script>
-        function copyCredentials(username, password) {
-            // Auto-fill form
-            document.getElementById('username').value = username;
-            document.getElementById('password').value = password;
-            
-            // Focus on password field
-            document.getElementById('password').focus();
-            
-            // Optional: Show feedback
-            const button = event.currentTarget;
-            const originalBorder = button.className;
-            button.classList.add('ring-4', 'ring-green-300');
-            setTimeout(() => {
-                button.className = originalBorder;
-            }, 300);
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const iconEye = document.getElementById('icon-eye');
+            const iconEyeOff = document.getElementById('icon-eye-off');
+            if (input.type === 'password') {
+                input.type = 'text';
+                iconEye.classList.add('hidden');
+                iconEyeOff.classList.remove('hidden');
+            } else {
+                input.type = 'password';
+                iconEye.classList.remove('hidden');
+                iconEyeOff.classList.add('hidden');
+            }
         }
     </script>
 </body>
+
 </html>

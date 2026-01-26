@@ -3,93 +3,263 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<!-- Quick Access Buttons -->
+<!-- Welcome Card -->
+<div class="bg-gradient-to-r from-primary-600 to-indigo-700 rounded-2xl shadow-lg p-6 mb-8 text-white">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold mb-1">{{ stats.greeting }}, {{ stats.user_info.name }}! 👋</h1>
+            <p class="text-primary-100 text-sm md:text-base">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white/20 mr-2">
+                    {{ stats.user_info.role_display }}
+                </span>
+                Aquí está tu resumen del día
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {% if stats.critical_stock_count > 0 and stats.user_role in ['admin', 'manager', 'warehouse'] %}
+            <span
+                class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-red-500 text-white animate-pulse">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clip-rule="evenodd" />
+                </svg>
+                {{ stats.critical_stock_count }} productos bajo stock
+            </span>
+            {% endif %}
+            {% if stats.pending_orders > 0 and stats.user_role in ['admin', 'manager', 'warehouse'] %}
+            <span class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-amber-500 text-white">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                {{ stats.pending_orders }} pedidos pendientes
+            </span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Access Buttons (Role-based) -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <!-- Ventas Button -->
+    {% if stats.user_role == 'admin' %}
+    <!-- Admin Quick Access -->
     <a href="{{ url_for('main.sales_view') }}"
-        class="bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-6 flex flex-col items-center justify-center gap-3 min-h-[140px]">
-        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        class="bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z">
-            </path>
+                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
         </svg>
-        <span class="text-lg font-bold">Ventas</span>
+        <span class="text-sm font-bold">Ventas</span>
     </a>
-
-    <!-- Productos Button -->
+    <a href="{{ url_for('admin.users') }}"
+        class="bg-gradient-to-br from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <span class="text-sm font-bold">Usuarios</span>
+    </a>
+    <a href="{{ url_for('admin.activity_log') }}"
+        class="bg-gradient-to-br from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+        <span class="text-sm font-bold">Activity Log</span>
+    </a>
     <a href="{{ url_for('main.products_view') }}"
-        class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-6 flex flex-col items-center justify-center gap-3 min-h-[140px]">
-        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        class="bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
         </svg>
-        <span class="text-lg font-bold">Productos</span>
+        <span class="text-sm font-bold">Productos</span>
     </a>
 
-    <!-- Operaciones Button (New) -->
+    {% elif stats.user_role == 'manager' %}
+    <!-- Manager Quick Access -->
+    <a href="{{ url_for('main.sales_view') }}"
+        class="bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+        <span class="text-sm font-bold">Ventas</span>
+    </a>
+    <a href="{{ url_for('main.products_view') }}"
+        class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <span class="text-sm font-bold">Productos</span>
+    </a>
     <a href="{{ url_for('warehouse.dashboard') }}"
-        class="bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-6 flex flex-col items-center justify-center gap-3 min-h-[140px]">
-        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        class="bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
-            </path>
+                d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <span class="text-lg font-bold">Operaciones</span>
+        <span class="text-sm font-bold">Reportes</span>
     </a>
+    <a href="{{ url_for('warehouse.orders') }}"
+        class="bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        <span class="text-sm font-bold">Pedidos</span>
+    </a>
+
+    {% elif stats.user_role == 'warehouse' %}
+    <!-- Warehouse Quick Access -->
+    <a href="{{ url_for('warehouse.receiving') }}"
+        class="bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+        </svg>
+        <span class="text-sm font-bold">Recepciones</span>
+    </a>
+    <a href="{{ url_for('warehouse.orders') }}"
+        class="bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        <span class="text-sm font-bold">Pedidos Proveedores</span>
+    </a>
+    <a href="{{ url_for('warehouse.wastage') }}"
+        class="bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        <span class="text-sm font-bold">Mermas</span>
+    </a>
+    <a href="{{ url_for('main.products_view') }}"
+        class="bg-gradient-to-br from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <span class="text-sm font-bold">Inventario</span>
+    </a>
+
+    {% else %}
+    <!-- Sales Quick Access -->
+    <a href="{{ url_for('main.sales_view') }}"
+        class="bg-gradient-to-br from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        <span class="text-sm font-bold">Nueva Venta</span>
+    </a>
+    <a href="{{ url_for('main.products_view') }}"
+        class="bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <span class="text-sm font-bold">Productos</span>
+    </a>
+    <a href="{{ url_for('main.sales_view') }}"
+        class="bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        <span class="text-sm font-bold">Mis Ventas</span>
+    </a>
+    <a href="{{ url_for('warehouse.dashboard') }}"
+        class="bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105 p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span class="text-sm font-bold">Estadísticas</span>
+    </a>
+    {% endif %}
 </div>
 
-<!-- Stats Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-    <!-- Stat 1 -->
-    <div
-        class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center hover:shadow-md transition-shadow">
-        <div class="p-3 rounded-lg bg-indigo-50 text-indigo-600">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z">
-                </path>
-            </svg>
-        </div>
-        <div class="ml-4">
-            <p class="text-sm font-medium text-slate-500 uppercase tracking-wide">Ventas Totales</p>
-            <p class="text-3xl font-bold text-slate-800 mt-1">{{ stats.total_sales }}</p>
-        </div>
-    </div>
-
-    <!-- Stat 2 -->
-    <div
-        class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center hover:shadow-md transition-shadow">
-        <div class="p-3 rounded-lg bg-purple-50 text-purple-600">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-            </svg>
-        </div>
-        <div class="ml-4">
-            <p class="text-sm font-medium text-slate-500 uppercase tracking-wide">Productos</p>
-            <p class="text-3xl font-bold text-slate-800 mt-1">{{ stats.total_products }}</p>
+<!-- Stats Grid (Role-based visibility) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Sales -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Ventas Totales</p>
+                <p class="text-2xl font-bold text-slate-800 mt-1">{{ stats.total_sales }}</p>
+            </div>
+            <div class="p-3 rounded-lg bg-indigo-50 text-indigo-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+            </div>
         </div>
     </div>
 
-    <!-- Stat 3 -->
-    <div
-        class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center hover:shadow-md transition-shadow">
-        <div class="p-3 rounded-lg bg-emerald-50 text-emerald-600">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
-                </path>
-            </svg>
-        </div>
-        <div class="ml-4">
-            <p class="text-sm font-medium text-slate-500 uppercase tracking-wide">Ingresos</p>
-            <p class="text-3xl font-bold text-emerald-600 mt-1">${{ "{:,.0f}".format(stats.total_revenue) }}</p>
+    <!-- Products -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Productos</p>
+                <p class="text-2xl font-bold text-slate-800 mt-1">{{ stats.total_products }}</p>
+            </div>
+            <div class="p-3 rounded-lg bg-purple-50 text-purple-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+            </div>
         </div>
     </div>
+
+    <!-- Revenue (only admin/manager) -->
+    {% if stats.user_role in ['admin', 'manager'] %}
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Ingresos</p>
+                <p class="text-2xl font-bold text-emerald-600 mt-1">${{ "{:,.0f}".format(stats.total_revenue) }}</p>
+            </div>
+            <div class="p-3 rounded-lg bg-emerald-50 text-emerald-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Critical Stock Alert -->
+    {% if stats.user_role in ['admin', 'manager', 'warehouse'] %}
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow {{ 'border-red-300 bg-red-50' if stats.critical_stock_count > 0 else '' }}">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Stock Crítico</p>
+                <p
+                    class="text-2xl font-bold {{ 'text-red-600' if stats.critical_stock_count > 0 else 'text-slate-800' }} mt-1">
+                    {{ stats.critical_stock_count }}</p>
+            </div>
+            <div
+                class="p-3 rounded-lg {{ 'bg-red-100 text-red-600' if stats.critical_stock_count > 0 else 'bg-amber-50 text-amber-600' }}">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
-<!-- Charts & Activity Grid -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <!-- Sales Chart -->
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
         <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
@@ -115,85 +285,149 @@
         </div>
     </div>
 
-    <!-- Recent Activity -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-full">
-        <!-- ... (Rest of recent activity) ... -->
-        <div class="px-6 py-4 border-b border-slate-100">
-            <h3 class="font-bold text-slate-800">Últimas Ventas</h3>
-        </div>
-        <div class="flex-1 overflow-y-auto">
-            <ul class="divide-y divide-slate-100">
-                {% for sale in stats.recent_sales %}
-                <li class="px-6 py-4 hover:bg-slate-50 transition-colors">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-sm font-medium text-slate-900">Pedido #{{ sale.id }}</p>
-                            <p class="text-xs text-slate-500">{{ sale.customer }}</p>
-                        </div>
+    <!-- Right Column -->
+    <div class="space-y-6">
+        <!-- Top Products -->
+        {% if stats.top_products %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="px-5 py-4 border-b border-slate-100">
+                <h3 class="font-bold text-slate-800 text-sm">🏆 Top 5 Productos Más Vendidos</h3>
+            </div>
+            <div class="p-4 space-y-3">
+                {% for product in stats.top_products %}
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
                         <span
-                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                                {{ 'bg-green-100 text-green-800' if sale.status == 'delivered' else 
-                                   'bg-yellow-100 text-yellow-800' if sale.status == 'pending' else 'bg-slate-100 text-slate-800' }}">
-                            {{ sale.status|translate_status }}
-                        </span>
+                            class="w-6 h-6 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center text-xs font-bold">{{
+                            loop.index }}</span>
+                        <span class="text-sm text-slate-700 truncate max-w-[140px]">{{ product.name }}</span>
                     </div>
-                </li>
+                    <span class="text-sm font-semibold text-slate-900">{{ product.quantity }} uds</span>
+                </div>
                 {% endfor %}
-            </ul>
+            </div>
         </div>
-        <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl">
-            <a href="{{ url_for('main.sales_view') }}"
-                class="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center justify-center">
-                Ver todas las ventas
-                <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3">
-                    </path>
-                </svg>
-            </a>
+        {% endif %}
+
+        <!-- Sales Distribution Donut (Admin/Manager only) -->
+        {% if stats.user_role in ['admin', 'manager'] %}
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="px-5 py-4 border-b border-slate-100">
+                <h3 class="font-bold text-slate-800 text-sm">📊 Estado de Ventas</h3>
+            </div>
+            <div class="p-4">
+                <div class="h-48">
+                    <canvas id="statusChart"></canvas>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-4 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-yellow-400"></span>
+                        <span class="text-slate-600">Pendientes: {{ stats.sales_distribution.pending }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                        <span class="text-slate-600">Entregadas: {{ stats.sales_distribution.delivered }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                        <span class="text-slate-600">En tránsito: {{ stats.sales_distribution.in_transit }}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                        <span class="text-slate-600">Canceladas: {{ stats.sales_distribution.cancelled }}</span>
+                    </div>
+                </div>
+            </div>
         </div>
+        {% endif %}
     </div>
 </div>
 
-<!-- Drill Down Modal -->
-<div id="drillDownModal"
-    class="fixed inset-0 z-50 hidden bg-gray-900 bg-opacity-50 overflow-y-auto h-full w-full backdrop-blur-sm"
-    style="display: none;"> <!-- Force hidden with style too for vanilla toggle safety -->
-    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold text-gray-900" id="drillDownTitle">Detalle de Ventas</h3>
-            <button onclick="closeDrillDownModal()" class="text-gray-400 hover:text-gray-500">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                    </path>
+<!-- Bottom Row: Critical Stock List & Recent Activity -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Critical Stock List -->
+    {% if stats.critical_stock and stats.user_role in ['admin', 'manager', 'warehouse'] %}
+    <div class="bg-white rounded-xl shadow-sm border border-red-200">
+        <div class="px-5 py-4 border-b border-red-100 bg-red-50 rounded-t-xl flex items-center justify-between">
+            <h3 class="font-bold text-red-800 text-sm flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clip-rule="evenodd" />
                 </svg>
-            </button>
+                Productos con Stock Crítico
+            </h3>
+            <a href="{{ url_for('main.products_view') }}" class="text-xs text-red-600 hover:underline">Ver todos →</a>
         </div>
-        <div class="mt-2 text-left">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Fecha</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Cliente</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Total</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200" id="drillDownTableBody">
-                        <!-- Rows injected via JS -->
-                    </tbody>
-                </table>
+        <div class="divide-y divide-red-100 max-h-64 overflow-y-auto">
+            {% for item in stats.critical_stock[:5] %}
+            <div class="px-5 py-3 flex justify-between items-center hover:bg-red-50 transition-colors">
+                <div>
+                    <p class="text-sm font-medium text-slate-900">{{ item.name }}</p>
+                    <p class="text-xs text-slate-500">SKU: {{ item.sku }}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm font-bold text-red-600">{{ item.stock }} uds</p>
+                    <p class="text-xs text-slate-500">Mín: {{ item.critical }}</p>
+                </div>
             </div>
-            <div id="drillDownLoading" class="hidden text-center py-4">
-                <p class="text-gray-500">Cargando...</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Activity (Admin/Manager) -->
+    {% if stats.user_activity and stats.user_role in ['admin', 'manager'] %}
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-bold text-slate-800 text-sm">📝 Actividad Reciente</h3>
+            <a href="{{ url_for('admin.activity_log') }}" class="text-xs text-primary-600 hover:underline">Ver todo
+                →</a>
+        </div>
+        <div class="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+            {% for activity in stats.user_activity %}
+            <div class="px-5 py-3 flex items-start gap-3">
+                <div
+                    class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-medium flex-shrink-0">
+                    {{ activity.time }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-slate-900 truncate">{{ activity.description }}</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">{{
+                            activity.module }}</span>
+                        <span class="text-xs text-slate-400">{{ activity.action }}</span>
+                    </div>
+                </div>
             </div>
-            <div id="drillDownEmpty" class="hidden text-center py-4">
-                <p class="text-gray-500">No se encontraron ventas para este periodo.</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Sales (Always visible) -->
+    <div
+        class="bg-white rounded-xl shadow-sm border border-slate-200 {{ 'lg:col-span-2' if not stats.critical_stock and not stats.user_activity else '' }}">
+        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-bold text-slate-800 text-sm">🛒 Últimas Ventas</h3>
+            <a href="{{ url_for('main.sales_view') }}" class="text-xs text-primary-600 hover:underline">Ver todas →</a>
+        </div>
+        <div class="divide-y divide-slate-100">
+            {% for sale in stats.recent_sales %}
+            <div class="px-5 py-3 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                <div>
+                    <p class="text-sm font-medium text-slate-900">Pedido #{{ sale.id[:8] }}...</p>
+                    <p class="text-xs text-slate-500">{{ sale.customer }}</p>
+                </div>
+                <span
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                    {{ 'bg-green-100 text-green-800' if sale.status == 'delivered' else 
+                       'bg-yellow-100 text-yellow-800' if sale.status == 'pending' else 
+                       'bg-blue-100 text-blue-800' if sale.status == 'in_transit' else 'bg-slate-100 text-slate-800' }}">
+                    {{ sale.status|translate_status }}
+                </span>
             </div>
+            {% endfor %}
         </div>
     </div>
 </div>
@@ -201,86 +435,13 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    function closeDrillDownModal() {
-        document.getElementById('drillDownModal').style.display = 'none';
-        document.getElementById('drillDownModal').classList.add('hidden');
-    }
-
     document.addEventListener('DOMContentLoaded', function () {
         let chartInstance = null;
         const rangeSelect = document.getElementById('rangeSelect');
         const ctx = document.getElementById('salesChart').getContext('2d');
-        const drillDownModal = document.getElementById('drillDownModal');
-        const drillDownTitle = document.getElementById('drillDownTitle');
-        const drillDownTableBody = document.getElementById('drillDownTableBody');
-        const drillDownLoading = document.getElementById('drillDownLoading');
-        const drillDownEmpty = document.getElementById('drillDownEmpty');
-
-        function openDrillDown(dateKey, label) {
-            drillDownTitle.textContent = `Ventas del: ${label}`;
-            drillDownModal.style.display = 'block';
-            drillDownModal.classList.remove('hidden');
-
-            drillDownTableBody.innerHTML = '';
-            drillDownLoading.classList.remove('hidden');
-            drillDownEmpty.classList.add('hidden');
-
-            fetch(`/api/sales?date=${dateKey}&per_page=100`)
-                .then(res => res.json())
-                .then(data => {
-                    drillDownLoading.classList.add('hidden');
-                    if (data.sales && data.sales.length > 0) {
-                        // Translation function for status
-                        const statusTranslate = (status) => {
-                            const translations = {
-                                'pending': 'pendiente',
-                                'delivered': 'entregado',
-                                'cancelled': 'cancelado',
-                                'assigned': 'asignado',
-                                'in_transit': 'en tránsito'
-                            };
-                            return translations[status] || status;
-                        };
-
-                        data.sales.forEach(sale => {
-                            const row = document.createElement('tr');
-                            // Format currency
-                            const totalFormatted = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(sale.total);
-
-                            row.innerHTML = `
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${sale.date}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    ${sale.customer}
-                                    <div class="text-xs text-gray-400 truncate w-32">#${sale.id} - ${sale.items.map(i => i.product + ' (' + i.quantity + ')').join(', ')}</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${totalFormatted}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                        ${sale.status === 'delivered' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
-                                        ${statusTranslate(sale.status)}
-                                    </span>
-                                </td>
-                            `;
-                            drillDownTableBody.appendChild(row);
-                        });
-                    } else {
-                        drillDownEmpty.classList.remove('hidden');
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    drillDownLoading.classList.add('hidden');
-                    drillDownEmpty.textContent = 'Error al cargar datos.';
-                    drillDownEmpty.classList.remove('hidden');
-                });
-        }
 
         function loadChart(range) {
-            let url = `/api/dashboard?range=${range}`;
-            // The 'specific_month' range is handled by the monthPicker listener directly
-            // and constructs its own URL. This loadChart function is for the main rangeSelect.
-
-            fetch(url)
+            fetch(`/api/dashboard?range=${range}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.chart_data) {
@@ -316,34 +477,14 @@
                             options: {
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                onClick: (e) => {
-                                    const points = chartInstance.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-                                    if (points.length) {
-                                        const firstPoint = points[0];
-                                        const index = firstPoint.index;
-                                        const dateKey = data.chart_data.keys[index];
-                                        const label = data.chart_data.labels[index];
-
-                                        if (dateKey) {
-                                            openDrillDown(dateKey, label);
-                                        }
-                                    }
-                                },
                                 plugins: {
                                     legend: { display: false },
                                     tooltip: {
                                         backgroundColor: '#1e293b',
                                         padding: 12,
-                                        titleFont: { family: '"Plus Jakarta Sans", sans-serif', size: 13 },
-                                        bodyFont: { family: '"Plus Jakarta Sans", sans-serif', size: 13 },
                                         callbacks: {
                                             label: function (context) {
-                                                let label = context.dataset.label || '';
-                                                if (label) label += ': ';
-                                                if (context.parsed.y !== null) {
-                                                    label += new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(context.parsed.y);
-                                                }
-                                                return label;
+                                                return 'Ventas: $' + context.parsed.y.toLocaleString('es-CL');
                                             }
                                         }
                                     }
@@ -351,27 +492,15 @@
                                 scales: {
                                     y: {
                                         beginAtZero: true,
-                                        grid: { color: '#f1f5f9', drawBorder: false },
+                                        grid: { color: '#f1f5f9' },
                                         ticks: {
-                                            font: { family: '"Plus Jakarta Sans", sans-serif', size: 11 },
-                                            color: '#64748b',
                                             callback: function (value) { return '$' + value; }
-                                        },
-                                        border: { display: false }
+                                        }
                                     },
                                     x: {
-                                        grid: { display: false },
-                                        ticks: {
-                                            font: { family: '"Plus Jakarta Sans", sans-serif', size: 11 },
-                                            color: '#64748b'
-                                        },
-                                        border: { display: false }
+                                        grid: { display: false }
                                     }
-                                },
-                                interaction: {
-                                    intersect: false,
-                                    mode: 'index',
-                                },
+                                }
                             }
                         });
                     }
@@ -395,105 +524,39 @@
 
         document.getElementById('monthPicker').addEventListener('change', function (e) {
             if (e.target.value) {
-                // Fetch with specific month
-                fetch(`/api/dashboard?range=specific_month&month=${e.target.value}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.chart_data) {
-                            if (chartInstance) {
-                                chartInstance.destroy();
-                            }
-
-                            chartInstance = new Chart(ctx, {
-                                type: 'line',
-                                data: {
-                                    labels: data.chart_data.labels,
-                                    datasets: [{
-                                        label: 'Ventas ($)',
-                                        data: data.chart_data.values,
-                                        borderColor: '#4f46e5',
-                                        backgroundColor: (context) => {
-                                            const ctx = context.chart.ctx;
-                                            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                                            gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
-                                            gradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
-                                            return gradient;
-                                        },
-                                        borderWidth: 3,
-                                        tension: 0.4,
-                                        fill: true,
-                                        pointBackgroundColor: '#ffffff',
-                                        pointBorderColor: '#4f46e5',
-                                        pointBorderWidth: 2,
-                                        pointRadius: 4,
-                                        pointHoverRadius: 6
-                                    }]
-                                },
-                                options: {
-                                    responsive: true,
-                                    maintainAspectRatio: false,
-                                    onClick: (e) => {
-                                        const points = chartInstance.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-                                        if (points.length) {
-                                            const firstPoint = points[0];
-                                            const index = firstPoint.index;
-                                            const dateKey = data.chart_data.keys[index];
-                                            const label = data.chart_data.labels[index];
-
-                                            if (dateKey) {
-                                                openDrillDown(dateKey, label);
-                                            }
-                                        }
-                                    },
-                                    plugins: {
-                                        legend: { display: false },
-                                        tooltip: {
-                                            backgroundColor: '#1e293b',
-                                            padding: 12,
-                                            titleFont: { family: '"Plus Jakarta Sans", sans-serif', size: 13 },
-                                            bodyFont: { family: '"Plus Jakarta Sans", sans-serif', size: 13 },
-                                            callbacks: {
-                                                label: function (context) {
-                                                    let label = context.dataset.label || '';
-                                                    if (label) label += ': ';
-                                                    if (context.parsed.y !== null) {
-                                                        label += new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(context.parsed.y);
-                                                    }
-                                                    return label;
-                                                }
-                                            }
-                                        }
-                                    },
-                                    scales: {
-                                        y: {
-                                            beginAtZero: true,
-                                            grid: { color: '#f1f5f9', drawBorder: false },
-                                            ticks: {
-                                                font: { family: '"Plus Jakarta Sans", sans-serif', size: 11 },
-                                                color: '#64748b',
-                                                callback: function (value) { return '$' + value; }
-                                            },
-                                            border: { display: false }
-                                        },
-                                        x: {
-                                            grid: { display: false },
-                                            ticks: {
-                                                font: { family: '"Plus Jakarta Sans", sans-serif', size: 11 },
-                                                color: '#64748b'
-                                            },
-                                            border: { display: false }
-                                        }
-                                    },
-                                    interaction: {
-                                        intersect: false,
-                                        mode: 'index',
-                                    },
-                                }
-                            });
-                        }
-                    });
+                loadChart('specific_month&month=' + e.target.value);
             }
         });
+
+        // Status Distribution Donut Chart
+        const statusCtx = document.getElementById('statusChart');
+        if (statusCtx) {
+            new Chart(statusCtx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pendientes', 'Entregadas', 'En tránsito', 'Canceladas'],
+                    datasets: [{
+                        data: [
+                            {{ stats.sales_distribution.pending }},
+                    {{ stats.sales_distribution.delivered }},
+                            {{ stats.sales_distribution.in_transit }},
+        {{ stats.sales_distribution.cancelled }}
+                        ],
+        backgroundColor: ['#facc15', '#10b981', '#3b82f6', '#ef4444'],
+            borderWidth: 0,
+                hoverOffset: 4
+    }]
+                },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        cutout: '70%'
+    }
+            });
+        }
     });
 </script>
 {% endblock %}

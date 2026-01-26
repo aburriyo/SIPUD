@@ -1,6 +1,6 @@
 from flask import Flask
 from config import Config
-from app.extensions import db, login_manager
+from app.extensions import db, login_manager, mail
 from bson import ObjectId
 
 
@@ -11,6 +11,7 @@ def create_app(config_class=Config):
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
+    mail.init_app(app)
     login_manager.login_view = "auth.login"
     login_manager.login_message = "Por favor inicia sesión para acceder a esta página."
     login_manager.login_message_category = "info"
@@ -26,18 +27,20 @@ def create_app(config_class=Config):
             return None
 
     # Register blueprints
-    from app.routes import main, api, reports, warehouse, auth
+    from app.routes import main, api, reports, warehouse, auth, admin
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(main.bp)
     app.register_blueprint(api.bp)
     app.register_blueprint(reports.bp)
     app.register_blueprint(warehouse.bp)
+    app.register_blueprint(admin.bp)
 
     # Custom Jinja2 filters
     @app.template_filter("translate_status")
     def translate_status(status):
         translations = {
+            # Legacy statuses
             "pending": "pendiente",
             "delivered": "entregado",
             "cancelled": "cancelado",
@@ -47,6 +50,22 @@ def create_app(config_class=Config):
             "overdue": "vencido",
             "received": "recibido",
             "paid": "pagado",
+
+            # New delivery statuses
+            "pendiente": "Pendiente",
+            "en_preparacion": "En Preparación",
+            "en_transito": "En Tránsito",
+            "entregado": "Entregado",
+            "con_observaciones": "Con Observaciones",
+            "cancelado": "Cancelado",
+
+            # Payment statuses
+            "pagado": "Pagado",
+            "parcial": "Pago Parcial",
+
+            # Sale types
+            "con_despacho": "Con Despacho",
+            "en_local": "Venta en Local",
         }
         return translations.get(status, status)
 

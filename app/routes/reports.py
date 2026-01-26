@@ -1,14 +1,32 @@
-from flask import Blueprint, send_file, g
+from flask import Blueprint, send_file, g, abort
+from flask_login import login_required, current_user
 from app.models import Sale, SaleItem, Product, Wastage, InboundOrder
 import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from datetime import datetime
+from functools import wraps
 
 bp = Blueprint("reports", __name__, url_prefix="/reports")
 
 
+def permission_required(module, action='view'):
+    """Decorator to check permissions before accessing a route"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                abort(401)
+            if not current_user.has_permission(module, action):
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+
 @bp.route("/sales/excel")
+@login_required
+@permission_required('reports', 'export')
 def export_sales_excel():
     tenant = g.current_tenant
 
@@ -85,6 +103,8 @@ def export_sales_excel():
 
 
 @bp.route("/warehouse/wastage/excel")
+@login_required
+@permission_required('reports', 'export')
 def export_wastage_excel():
     """Exportar historial de mermas a Excel"""
     tenant = g.current_tenant
@@ -153,6 +173,8 @@ def export_wastage_excel():
 
 
 @bp.route("/warehouse/inventory/excel")
+@login_required
+@permission_required('reports', 'export')
 def export_inventory_excel():
     """Exportar inventario completo a Excel"""
     tenant = g.current_tenant
@@ -243,6 +265,8 @@ def export_inventory_excel():
 
 
 @bp.route("/warehouse/orders/excel")
+@login_required
+@permission_required('reports', 'export')
 def export_orders_excel():
     """Exportar pedidos a proveedores a Excel"""
     tenant = g.current_tenant

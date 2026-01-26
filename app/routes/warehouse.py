@@ -3,14 +3,29 @@ Warehouse Operations Blueprint
 Gestiona operaciones diarias del almacén: pedidos, recepciones, mermas
 """
 
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, g
-from flask_login import login_required
-from app.models import Product, InboundOrder, Wastage, Lot, Supplier, ProductBundle
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, g, abort
+from flask_login import login_required, current_user
+from app.models import Product, InboundOrder, Wastage, Lot, Supplier, ProductBundle, ActivityLog
 from datetime import datetime, timedelta
 from bson import ObjectId
 from mongoengine import DoesNotExist
+from functools import wraps
 
 bp = Blueprint("warehouse", __name__, url_prefix="/warehouse")
+
+
+def permission_required(module, action='view'):
+    """Decorator to check permissions before accessing a route"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                abort(401)
+            if not current_user.has_permission(module, action):
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 
 @bp.route("/")
@@ -96,6 +111,7 @@ def expiry():
 # API Endpoints
 @bp.route("/api/orders", methods=["GET"])
 @login_required
+@permission_required('orders', 'view')
 def get_orders():
     """Obtener todos los pedidos"""
     try:
@@ -131,6 +147,7 @@ def get_orders():
 
 @bp.route("/api/orders", methods=["POST"])
 @login_required
+@permission_required('orders', 'create')
 def create_order():
     """Crear nuevo pedido a proveedor"""
     try:
@@ -178,6 +195,18 @@ def create_order():
 
         new_order.save()
 
+        # Log activity
+        ActivityLog.log(
+            user=current_user,
+            action='create',
+            module='orders',
+            description=f'Creó pedido a "{supplier_name}" - Factura: {invoice_number}, Total: ${total:,.0f}',
+            target_id=str(new_order.id),
+            target_type='InboundOrder',
+            request=request,
+            tenant=tenant
+        )
+
         return jsonify(
             {
                 "success": True,
@@ -192,6 +221,7 @@ def create_order():
 
 @bp.route("/api/orders/<order_id>", methods=["PUT"])
 @login_required
+@permission_required('orders', 'edit')
 def update_order(order_id):
     """Actualizar pedido existente"""
     try:
@@ -219,6 +249,18 @@ def update_order(order_id):
 
         order.save()
 
+        # Log activity
+        ActivityLog.log(
+            user=current_user,
+            action='update',
+            module='orders',
+            description=f'Actualizó pedido de "{order.supplier_name}" - Factura: {order.invoice_number}',
+            target_id=str(order.id),
+            target_type='InboundOrder',
+            request=request,
+            tenant=tenant
+        )
+
         return jsonify(
             {"success": True, "message": "Pedido actualizado exitosamente"}
         ), 200
@@ -229,6 +271,7 @@ def update_order(order_id):
 
 @bp.route("/api/orders/<order_id>", methods=["DELETE"])
 @login_required
+@permission_required('orders', 'delete')
 def delete_order(order_id):
     """Eliminar pedido"""
     try:
@@ -250,7 +293,23 @@ def delete_order(order_id):
                 }
             ), 400
 
+        # Log activity before deletion
+        supplier_name = order.supplier_name
+        invoice_number = order.invoice_number
+        order_id_str = str(order.id)
+
         order.delete()
+
+        ActivityLog.log(
+            user=current_user,
+            action='delete',
+            module='orders',
+            description=f'Eliminó pedido de "{supplier_name}" - Factura: {invoice_number}',
+            target_id=order_id_str,
+            target_type='InboundOrder',
+            request=request,
+            tenant=tenant
+        )
 
         return jsonify(
             {"success": True, "message": "Pedido eliminado exitosamente"}
@@ -297,6 +356,7 @@ def get_receiving_orders():
 
 @bp.route("/api/receiving/<order_id>", methods=["POST"])
 @login_required
+@permission_required('orders', 'receive')
 def confirm_receiving(order_id):
     """Confirmar recepción de pedido con validaciones y procesamiento de lotes"""
     try:
@@ -430,6 +490,18 @@ def confirm_receiving(order_id):
         order.date_received = datetime.now()
         order.save()
 
+        # Log activity
+        ActivityLog.log(
+            user=current_user,
+            action='receive',
+            module='orders',
+            description=f'Recibió pedido de "{order.supplier_name}" - Factura: {order.invoice_number}, {len(products)} producto(s)',
+            target_id=str(order.id),
+            target_type='InboundOrder',
+            request=request,
+            tenant=tenant
+        )
+
         return jsonify(
             {
                 "success": True,
@@ -443,6 +515,7 @@ def confirm_receiving(order_id):
 
 @bp.route("/api/wastage", methods=["POST"])
 @login_required
+@permission_required('wastage', 'create')
 def register_wastage():
     """Registrar merma de producto"""
     try:
@@ -533,6 +606,25 @@ def register_wastage():
 
         wastage_record.save()
 
+        # Log activity
+        reason_names = {
+            'vencido': 'Vencido',
+            'dañado': 'Dañado',
+            'perdido': 'Perdido',
+            'robo': 'Robo',
+            'otro': 'Otro'
+        }
+        ActivityLog.log(
+            user=current_user,
+            action='create',
+            module='wastage',
+            description=f'Registró merma de "{product.name}" - {quantity} unidades ({reason_names.get(reason, reason)})',
+            target_id=str(wastage_record.id),
+            target_type='Wastage',
+            request=request,
+            tenant=tenant
+        )
+
         return jsonify(
             {
                 "success": True,
@@ -547,6 +639,7 @@ def register_wastage():
 
 @bp.route("/api/wastage/history", methods=["GET"])
 @login_required
+@permission_required('wastage', 'view')
 def wastage_history():
     """Obtener historial de mermas"""
     try:
@@ -577,6 +670,7 @@ def wastage_history():
 
 @bp.route("/api/wastage/<wastage_id>", methods=["DELETE"])
 @login_required
+@permission_required('wastage', 'delete')
 def delete_wastage(wastage_id):
     """Eliminar registro de merma (NO REVIERTE STOCK)"""
     try:
@@ -589,7 +683,23 @@ def delete_wastage(wastage_id):
         if wastage_record.tenant != tenant:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
+        # Log activity before deletion
+        product_name = wastage_record.product.name if wastage_record.product else 'N/A'
+        quantity = wastage_record.quantity
+        wastage_id_str = str(wastage_record.id)
+
         wastage_record.delete()
+
+        ActivityLog.log(
+            user=current_user,
+            action='delete',
+            module='wastage',
+            description=f'Eliminó registro de merma de "{product_name}" - {quantity} unidades',
+            target_id=wastage_id_str,
+            target_type='Wastage',
+            request=request,
+            tenant=tenant
+        )
 
         return jsonify({"success": True, "message": "Registro de merma eliminado"}), 200
 
@@ -690,6 +800,18 @@ def update_expiry(product_id):
 
         product.save()
 
+        # Log activity
+        ActivityLog.log(
+            user=current_user,
+            action='update',
+            module='products',
+            description=f'Actualizó fecha de vencimiento de "{product.name}" a {expiry_str or "sin fecha"}',
+            target_id=str(product.id),
+            target_type='Product',
+            request=request,
+            tenant=tenant
+        )
+
         return jsonify(
             {"success": True, "message": "Fecha de vencimiento actualizada"}
         ), 200
@@ -765,6 +887,7 @@ def get_alerts():
 
 @bp.route("/api/assembly", methods=["POST"])
 @login_required
+@permission_required('orders', 'create')
 def assemble_box():
     """
     Ensamblar cajas (Kitting).
@@ -897,6 +1020,18 @@ def assemble_box():
             created_at=datetime.utcnow(),
         )
         new_lot.save()
+
+        # Log activity
+        ActivityLog.log(
+            user=current_user,
+            action='create',
+            module='orders',
+            description=f'Armó {quantity} unidades de "{bundle_product.name}" (Kit/Bundle)',
+            target_id=str(new_lot.id),
+            target_type='Lot',
+            request=request,
+            tenant=tenant
+        )
 
         return jsonify(
             {

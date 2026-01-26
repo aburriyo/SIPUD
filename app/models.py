@@ -4,6 +4,79 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
 
+# ============================================
+# PERMISSIONS CONFIGURATION
+# ============================================
+ROLE_PERMISSIONS = {
+    'admin': {
+        'users': ['view', 'create', 'edit', 'delete'],
+        'products': ['view', 'create', 'edit', 'delete'],
+        'sales': ['view', 'create', 'edit', 'cancel'],
+        'orders': ['view', 'create', 'receive', 'delete'],
+        'wastage': ['view', 'create', 'delete'],
+        'reports': ['view', 'export'],
+        'activity_log': ['view'],
+    },
+    'manager': {
+        'users': ['view', 'create', 'edit'],  # No delete
+        'products': ['view', 'create', 'edit', 'delete'],
+        'sales': ['view', 'create', 'edit', 'cancel'],
+        'orders': ['view', 'create', 'receive', 'delete'],
+        'wastage': ['view', 'create', 'delete'],
+        'reports': ['view', 'export'],
+        'activity_log': [],  # No access
+    },
+    'warehouse': {
+        'users': [],
+        'products': ['view'],
+        'sales': ['view'],
+        'orders': ['view', 'create', 'receive'],
+        'wastage': ['view', 'create'],
+        'reports': ['view'],
+        'activity_log': [],
+    },
+    'sales': {
+        'users': [],
+        'products': ['view'],
+        'sales': ['view', 'create'],
+        'orders': [],
+        'wastage': [],
+        'reports': ['view', 'export'],
+        'activity_log': [],
+    },
+}
+
+# ============================================
+# STATUS CONSTANTS
+# ============================================
+DELIVERY_STATUSES = {
+    'pendiente': 'Pendiente',
+    'en_preparacion': 'En Preparación',
+    'en_transito': 'En Tránsito',
+    'entregado': 'Entregado',
+    'con_observaciones': 'Entregado con Observaciones',
+    'cancelado': 'Cancelado'
+}
+
+PAYMENT_STATUSES = {
+    'pendiente': 'Pago Pendiente',
+    'parcial': 'Pago Parcial',
+    'pagado': 'Pagado'
+}
+
+SALE_TYPES = {
+    'con_despacho': 'Con Despacho',
+    'en_local': 'Venta en Local'
+}
+
+PAYMENT_VIAS = {
+    'efectivo': 'Efectivo',
+    'transferencia': 'Transferencia',
+    'tarjeta': 'Tarjeta',
+    'otro': 'Otro'
+}
+
+
 class Tenant(db.Document):
     name = db.StringField(max_length=100, unique=True, required=True)
     slug = db.StringField(max_length=50, unique=True, required=True)
@@ -40,16 +113,26 @@ class User(db.Document, UserMixin):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-    def has_permission(self, permission):
-        """Check if user role has specific permission"""
-        permissions = {
-            'admin': ['all'],
-            'manager': ['inventory', 'sales', 'warehouse', 'reports'],
-            'warehouse': ['warehouse', 'inventory_view'],
-            'sales': ['sales', 'inventory_view', 'logistics'],
-        }
-        user_perms = permissions.get(self.role, [])
-        return 'all' in user_perms or permission in user_perms
+    def has_permission(self, module, action='view'):
+        """
+        Check if user role has specific permission for a module and action.
+
+        Usage:
+            user.has_permission('products', 'create')
+            user.has_permission('users', 'delete')
+            user.has_permission('activity_log', 'view')
+        """
+        role_perms = ROLE_PERMISSIONS.get(self.role, {})
+        module_perms = role_perms.get(module, [])
+        return action in module_perms
+
+    def can(self, module, action='view'):
+        """Alias for has_permission"""
+        return self.has_permission(module, action)
+
+    def get_permissions(self):
+        """Get all permissions for this user's role"""
+        return ROLE_PERMISSIONS.get(self.role, {})
 
     def __repr__(self):
         return f'<User {self.username} ({self.role})>'
@@ -128,18 +211,89 @@ class Sale(db.Document):
     customer_name = db.StringField(max_length=100)
     address = db.StringField(max_length=200)
     phone = db.StringField(max_length=20)
+
+    # Legacy fields (maintained for backward compatibility)
     status = db.StringField(max_length=20, default='pending')  # pending, assigned, in_transit, delivered, cancelled
-    payment_method = db.StringField(max_length=200)
-    payment_confirmed = db.BooleanField(default=False)
-    delivery_status = db.StringField(max_length=20, default='pending')  # pending, in_transit, delivered
+    payment_method = db.StringField(max_length=200)  # DEPRECATED: use Payment model instead
+    payment_confirmed = db.BooleanField(default=False)  # DEPRECATED: use payment_status instead
+
+    # New fields
+    sale_type = db.StringField(
+        max_length=20,
+        default='con_despacho',
+        choices=['con_despacho', 'en_local']
+    )
+
+    # Delivery fields
+    delivery_status = db.StringField(
+        max_length=20,
+        default='pendiente',
+        choices=['pendiente', 'en_preparacion', 'en_transito', 'entregado', 'con_observaciones', 'cancelado']
+    )
+    delivery_observations = db.StringField(max_length=500)
+    date_delivered = db.DateTimeField()
+
+    # Payment status (calculated from Payment collection)
+    payment_status = db.StringField(
+        max_length=20,
+        default='pendiente',
+        choices=['pendiente', 'pagado', 'parcial']
+    )
+
+    # Dates
     date_created = db.DateTimeField(default=datetime.utcnow)
+
+    # References
     tenant = db.ReferenceField(Tenant)
     route = db.ReferenceField('LogisticsRoute')  # Fleet - kept disabled but preserved
+
     meta = {'collection': 'sales'}
 
     @property
     def items(self):
         return SaleItem.objects(sale=self)
+
+    @property
+    def total_amount(self):
+        """Calcula el monto total de la venta"""
+        return sum(item.quantity * float(item.unit_price) for item in self.items)
+
+    @property
+    def total_paid(self):
+        """Suma todos los pagos registrados"""
+        from app.models import Payment  # Import here to avoid circular dependency
+        return sum(float(p.amount) for p in Payment.objects(sale=self))
+
+    @property
+    def balance_pending(self):
+        """Calcula saldo pendiente"""
+        return self.total_amount - self.total_paid
+
+    @property
+    def computed_payment_status(self):
+        """Calcula payment_status desde pagos registrados"""
+        total = self.total_amount
+        paid = self.total_paid
+
+        if paid >= total:
+            return 'pagado'
+        elif paid > 0:
+            return 'parcial'
+        else:
+            return 'pendiente'
+
+    @property
+    def computed_status(self):
+        """Calcula status legacy desde delivery_status"""
+        status_map = {
+            'pendiente': 'pending',
+            'en_preparacion': 'assigned',
+            'en_transito': 'in_transit',
+            'entregado': 'delivered',
+            'con_observaciones': 'delivered',
+            'cancelado': 'cancelled'
+        }
+        return status_map.get(self.delivery_status, 'pending')
 
 
 class SaleItem(db.Document):
@@ -163,6 +317,107 @@ class Wastage(db.Document):
     date_created = db.DateTimeField(default=datetime.utcnow)
     tenant = db.ReferenceField(Tenant)
     meta = {'collection': 'wastages'}
+
+
+class Payment(db.Document):
+    """
+    Registro de pagos para una venta.
+    Permite múltiples abonos con historial completo.
+    """
+    sale = db.ReferenceField(Sale, required=True)
+    tenant = db.ReferenceField(Tenant, required=True)
+
+    # Detalles del pago
+    amount = db.DecimalField(precision=2, required=True)
+    payment_via = db.StringField(
+        max_length=50,
+        required=True,
+        choices=['efectivo', 'transferencia', 'tarjeta', 'otro']
+    )
+    payment_reference = db.StringField(max_length=200)  # Número de transferencia, etc.
+    notes = db.StringField(max_length=500)  # Notas adicionales
+
+    # Auditoría
+    date_created = db.DateTimeField(default=datetime.utcnow)
+    created_by = db.ReferenceField(User)
+
+    meta = {
+        'collection': 'payments',
+        'indexes': [
+            'sale',
+            'tenant',
+            '-date_created'
+        ],
+        'ordering': ['-date_created']
+    }
+
+
+# ============================================
+# ACTIVITY LOG - MONITOR DE ACTIVIDADES
+# ============================================
+class ActivityLog(db.Document):
+    """
+    Registro de todas las actividades del sistema.
+    Solo visible para administradores.
+    """
+    user = db.ReferenceField('User', required=True)
+    user_name = db.StringField(max_length=100)  # Cache del nombre
+    user_role = db.StringField(max_length=20)   # Cache del rol
+    action = db.StringField(max_length=50, required=True)  # create, update, delete, login, logout, etc.
+    module = db.StringField(max_length=50, required=True)  # products, sales, users, orders, etc.
+    description = db.StringField(max_length=500)
+    details = db.DictField()  # JSON con detalles adicionales
+    target_id = db.StringField(max_length=50)  # ID del objeto afectado
+    target_type = db.StringField(max_length=50)  # Tipo de objeto (Product, Sale, etc.)
+    ip_address = db.StringField(max_length=45)
+    user_agent = db.StringField(max_length=500)
+    tenant = db.ReferenceField(Tenant)
+    created_at = db.DateTimeField(default=datetime.utcnow)
+    meta = {
+        'collection': 'activity_logs',
+        'indexes': [
+            '-created_at',
+            'user',
+            'action',
+            'module',
+            'tenant'
+        ],
+        'ordering': ['-created_at']
+    }
+
+    @classmethod
+    def log(cls, user, action, module, description=None, details=None,
+            target_id=None, target_type=None, request=None, tenant=None):
+        """
+        Método helper para crear logs fácilmente.
+
+        Usage:
+            ActivityLog.log(
+                user=current_user,
+                action='create',
+                module='products',
+                description='Creó producto "Pan Integral"',
+                target_id=str(product.id),
+                target_type='Product',
+                request=request
+            )
+        """
+        log_entry = cls(
+            user=user,
+            user_name=user.full_name or user.username,
+            user_role=user.role,
+            action=action,
+            module=module,
+            description=description,
+            details=details or {},
+            target_id=target_id,
+            target_type=target_type,
+            ip_address=request.remote_addr if request else None,
+            user_agent=request.user_agent.string[:500] if request and request.user_agent else None,
+            tenant=tenant or (user.tenant if user else None)
+        )
+        log_entry.save()
+        return log_entry
 
 
 # ============================================
