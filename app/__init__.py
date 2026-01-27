@@ -27,7 +27,7 @@ def create_app(config_class=Config):
             return None
 
     # Register blueprints
-    from app.routes import main, api, reports, warehouse, auth, admin
+    from app.routes import main, api, reports, warehouse, auth, admin, customers
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(main.bp)
@@ -35,6 +35,7 @@ def create_app(config_class=Config):
     app.register_blueprint(reports.bp)
     app.register_blueprint(warehouse.bp)
     app.register_blueprint(admin.bp)
+    app.register_blueprint(customers.bp)
 
     # Custom Jinja2 filters
     @app.template_filter("translate_status")

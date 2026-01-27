@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"}],"uuid":"51933fc2d48440478605cd43741ce935","collectionName":"vehicle_maintenances","type":"collection"}

@@ -16,6 +16,7 @@ ROLE_PERMISSIONS = {
         'wastage': ['view', 'create', 'delete'],
         'reports': ['view', 'export'],
         'activity_log': ['view'],
+        'customers': ['view', 'export', 'sync'],
     },
     'manager': {
         'users': ['view', 'create', 'edit'],  # No delete
@@ -25,6 +26,7 @@ ROLE_PERMISSIONS = {
         'wastage': ['view', 'create', 'delete'],
         'reports': ['view', 'export'],
         'activity_log': [],  # No access
+        'customers': ['view', 'export'],
     },
     'warehouse': {
         'users': [],
@@ -34,6 +36,7 @@ ROLE_PERMISSIONS = {
         'wastage': ['view', 'create'],
         'reports': ['view'],
         'activity_log': [],
+        'customers': [],
     },
     'sales': {
         'users': [],
@@ -43,6 +46,7 @@ ROLE_PERMISSIONS = {
         'wastage': [],
         'reports': ['view', 'export'],
         'activity_log': [],
+        'customers': ['view'],
     },
 }
 
@@ -147,6 +151,7 @@ class Product(db.Document):
     tags = db.StringField(max_length=200)
     description = db.StringField()
     expiry_date = db.DateField()
+    shopify_id = db.StringField(max_length=50)  # Link to Shopify product
     tenant = db.ReferenceField(Tenant)
     meta = {'collection': 'products'}
 
@@ -242,6 +247,10 @@ class Sale(db.Document):
 
     # Dates
     date_created = db.DateTimeField(default=datetime.utcnow)
+
+    # Shopify link (read-only sync)
+    shopify_order_id = db.StringField(max_length=50)  # Shopify order ID for sync tracking
+    shopify_order_number = db.IntField()  # Shopify order number (#1001, etc.)
 
     # References
     tenant = db.ReferenceField(Tenant)
@@ -463,3 +472,110 @@ class LogisticsRoute(db.Document):
     end_time = db.DateTimeField()
     status = db.StringField(max_length=20, default='planned')  # planned, in_transit, completed
     meta = {'collection': 'logistics_routes'}
+
+
+# ============================================
+# SHOPIFY INTEGRATION - CUSTOMERS & ORDERS
+# ============================================
+class ShopifyCustomer(db.Document):
+    """Cliente sincronizado desde Shopify (solo lectura)"""
+    name = db.StringField(max_length=200)
+    email = db.StringField(max_length=200)
+    phone = db.StringField(max_length=50)
+    
+    # Address fields
+    address_city = db.StringField(max_length=100)
+    address_province = db.StringField(max_length=100)
+    address_country = db.StringField(max_length=100)
+    
+    # Shopify fields
+    shopify_id = db.StringField(max_length=50, unique=True, required=True)
+    tags = db.StringField(max_length=500)
+    
+    # Stats (calculated from orders)
+    total_orders = db.IntField(default=0)
+    total_spent = db.DecimalField(precision=2, default=0)
+    first_order_date = db.DateTimeField()
+    last_order_date = db.DateTimeField()
+    
+    # Metadata
+    created_at = db.DateTimeField()
+    updated_at = db.DateTimeField(default=datetime.utcnow)
+    tenant = db.ReferenceField(Tenant)
+    
+    meta = {
+        'collection': 'shopify_customers',
+        'indexes': [
+            'shopify_id',
+            'email',
+            'tenant',
+            '-total_spent',
+            '-created_at'
+        ]
+    }
+    
+    @property
+    def orders(self):
+        """Get all orders for this customer"""
+        return ShopifyOrder.objects(customer=self).order_by('-created_at')
+    
+    @property
+    def last_order(self):
+        """Get the most recent order"""
+        return ShopifyOrder.objects(customer=self).order_by('-created_at').first()
+
+
+class ShopifyOrderLineItem(db.EmbeddedDocument):
+    """Line item dentro de una orden de Shopify"""
+    title = db.StringField(max_length=200)
+    sku = db.StringField(max_length=100)
+    quantity = db.IntField(default=1)
+    price = db.DecimalField(precision=2)
+    variant_title = db.StringField(max_length=200)
+    product_shopify_id = db.StringField(max_length=50)
+
+
+class ShopifyOrder(db.Document):
+    """Orden sincronizada desde Shopify (solo lectura)"""
+    order_number = db.IntField()
+    shopify_id = db.StringField(max_length=50, unique=True, required=True)
+    
+    # Customer info
+    customer = db.ReferenceField(ShopifyCustomer)
+    customer_name = db.StringField(max_length=200)
+    email = db.StringField(max_length=200)
+    
+    # Financial info
+    total_price = db.DecimalField(precision=2)
+    subtotal_price = db.DecimalField(precision=2)
+    
+    # Status
+    financial_status = db.StringField(max_length=50)  # pending, paid, refunded, etc.
+    fulfillment_status = db.StringField(max_length=50)  # fulfilled, partial, unfulfilled, etc.
+    
+    # Items
+    line_items = db.EmbeddedDocumentListField(ShopifyOrderLineItem)
+    
+    # Shipping
+    shipping_city = db.StringField(max_length=100)
+    shipping_province = db.StringField(max_length=100)
+    note = db.StringField()
+    
+    # Metadata
+    created_at = db.DateTimeField()
+    updated_at = db.DateTimeField(default=datetime.utcnow)
+    tenant = db.ReferenceField(Tenant)
+    
+    meta = {
+        'collection': 'shopify_orders',
+        'indexes': [
+            'shopify_id',
+            'customer',
+            'order_number',
+            'tenant',
+            '-created_at',
+            'financial_status',
+            'fulfillment_status'
+        ],
+        'ordering': ['-created_at']
+    }

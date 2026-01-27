@@ -1,0 +1,855 @@
+\documentclass[11pt,a4paper]{book}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{tocloft}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\usepackage{booktabs}
+\usepackage{fontawesome5}
+\usepackage{lmodern}
+\usepackage{sectsty}
+\usepackage{titlesec}
+
+% ============================================
+% GEOMETRÍA Y MÁRGENES MODERNOS
+% ============================================
+\geometry{
+    left=2.5cm,
+    right=2.5cm,
+    top=2.5cm,
+    bottom=2.5cm,
+    headheight=24pt
+}
+
+% ============================================
+% COLORES CORPORATIVOS SIPUD
+% ============================================
+\definecolor{sipudblue}{RGB}{37, 99, 235}
+\definecolor{sipudgray}{RGB}{107, 114, 128}
+\definecolor{sipudlight}{RGB}{239, 246, 255}
+\definecolor{sipudgreen}{RGB}{34, 197, 94}
+\definecolor{sipudred}{RGB}{239, 68, 68}
+\definecolor{sipudorange}{RGB}{249, 115, 22}
+\definecolor{sipudpurple}{RGB}{147, 51, 234}
+
+% ============================================
+% CONFIGURACIÓN DE HYPERREF
+% ============================================
+\hypersetup{
+    colorlinks=true,
+    linkcolor=sipudblue,
+    urlcolor=sipudblue,
+    citecolor=sipudblue,
+    pdfborder={0 0 0},
+    pdfauthor={SIPUD Team},
+    pdftitle={SIPUD - Manual de Usuario}
+}
+
+% ============================================
+% TIPOGRAFÍA Y SECCIONES
+% ============================================
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{sipudblue}}
+  {\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{sipudblue}}
+  {\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{sipudgray}}
+  {\thesubsection}{1em}{}
+
+\chapterfont{\color{sipudblue}}
+\sectionfont{\color{sipudblue}}
+\subsectionfont{\color{sipudgray}}
+
+% ============================================
+% ENCABEZADOS Y PIES DE PÁGINA
+% ============================================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\textcolor{sipudblue}{\textbf{SIPUD}}}
+\fancyhead[RE,LO]{\leftmark}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{sipudblue}\leaders\hrule height \headrulewidth\hfill}}
+\renewcommand{\footrulewidth}{0pt}
+
+% ============================================
+% CAJAS PERSONALIZADAS CON ICONOS
+% ============================================
+
+% Caja de Consejo (Tips)
+\newtcolorbox{tipbox}{
+    enhanced,
+    breakable,
+    colback=sipudlight,
+    colframe=sipudblue,
+    arc=4mm,
+    boxrule=1pt,
+    left=8mm,
+    overlay={
+        \node[anchor=west, font=\Large] at (frame.west) {\textcolor{sipudblue}{\faLightbulb}};
+    },
+    fonttitle=\bfseries\color{sipudblue},
+    title=Consejo
+}
+
+% Caja de Información
+\newtcolorbox{infobox}{
+    enhanced,
+    breakable,
+    colback=sipudlight,
+    colframe=sipudblue,
+    arc=4mm,
+    boxrule=1pt,
+    left=8mm,
+    overlay={
+        \node[anchor=west, font=\Large] at (frame.west) {\textcolor{sipudblue}{\faInfoCircle}};
+    },
+    fonttitle=\bfseries\color{sipudblue},
+    title=Información
+}
+
+% Caja de Advertencia
+\newtcolorbox{warningbox}{
+    enhanced,
+    breakable,
+    colback=orange!5,
+    colframe=sipudorange,
+    arc=4mm,
+    boxrule=1pt,
+    left=8mm,
+    overlay={
+        \node[anchor=west, font=\Large] at (frame.west) {\textcolor{sipudorange}{\faExclamationTriangle}};
+    },
+    fonttitle=\bfseries\color{sipudorange},
+    title=Atención
+}
+
+% Caja de Éxito
+\newtcolorbox{successbox}{
+    enhanced,
+    breakable,
+    colback=green!5,
+    colframe=sipudgreen,
+    arc=4mm,
+    boxrule=1pt,
+    left=8mm,
+    overlay={
+        \node[anchor=west, font=\Large] at (frame.west) {\textcolor{sipudgreen}{\faCheckCircle}};
+    },
+    fonttitle=\bfseries\color{sipudgreen},
+    title=Completado
+}
+
+% Caja de Paso a Paso
+\newtcolorbox{stepbox}[1]{
+    enhanced,
+    breakable,
+    colback=sipudpurple!5,
+    colframe=sipudpurple,
+    arc=4mm,
+    boxrule=1pt,
+    fonttitle=\bfseries\color{sipudpurple},
+    title=#1
+}
+
+% ============================================
+% CONFIGURACIÓN DE LISTAS
+% ============================================
+\setlist[itemize]{leftmargin=*,labelsep=5mm}
+\setlist[enumerate]{leftmargin=*,labelsep=5mm}
+
+% ============================================
+% INICIO DEL DOCUMENTO
+% ============================================
+\begin{document}
+
+% ============================================
+% PORTADA MODERNA
+% ============================================
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    
+    % Logo minimalista con TikZ
+    \begin{tikzpicture}
+        \shade[ball color=sipudblue!80] (0,0) circle (2cm);
+        \node[white, font=\fontsize{40}{48}\selectfont\bfseries] at (0,0.2) {S};
+        \draw[sipudblue, line width=4pt] (-2.5,-2.5) -- (2.5,-2.5);
+    \end{tikzpicture}
+    
+    \vspace{1.5cm}
+    
+    {\fontsize{48}{58}\selectfont\bfseries\color{sipudblue} SIPUD}\\[0.5cm]
+    {\Large\color{sipudgray} Sistema Integrado de Gestión Empresarial}\\[2cm]
+    
+    {\Huge\bfseries Manual de Usuario}\\[0.3cm]
+    {\large Guía Rápida y Práctica}\\[3cm]
+    
+    \begin{tikzpicture}
+        \fill[sipudlight, rounded corners=5mm] (0,0) rectangle (12,3);
+        \node[sipudblue, font=\large] at (6,2.2) {\faBoxes\ \ Inventario};
+        \node[sipudblue, font=\large] at (6,1.5) {\faShoppingCart\ \ Ventas};
+        \node[sipudblue, font=\large] at (6,0.8) {\faWarehouse\ \ Bodega};
+    \end{tikzpicture}
+    
+    \vfill
+    
+    {\large Versión 1.0 • Enero 2026}
+    
+\end{titlepage}
+
+% ============================================
+% ÍNDICE
+% ============================================
+\tableofcontents
+\clearpage
+
+% ============================================
+% CAPÍTULO 1: BIENVENIDA
+% ============================================
+\chapter{Bienvenido a SIPUD}
+
+\section{¿Qué es SIPUD?}
+
+SIPUD es tu solución completa para gestionar productos, ventas y bodega. Todo en un solo lugar, fácil de usar y accesible desde cualquier dispositivo.
+
+\begin{infobox}
+\textbf{SIPUD te ayuda a:}
+\begin{itemize}
+    \item Controlar tu inventario en tiempo real
+    \item Gestionar ventas con o sin despacho
+    \item Recibir y organizar mercancía
+    \item Exportar reportes a Excel
+    \item Trabajar con múltiples empresas (multi-tenant)
+\end{itemize}
+\end{infobox}
+
+\section{Módulos Principales}
+
+\subsection*{\faChartLine\ Dashboard}
+Panel de control con métricas clave de tu negocio.
+
+\subsection*{\faBoxes\ Productos}
+Catálogo completo con precios, stock y bundles (packs).
+
+\subsection*{\faShoppingCart\ Ventas}
+Registra ventas en local o con despacho. Control de pagos y entregas.
+
+\subsection*{\faWarehouse\ Bodega}
+Gestión de pedidos, recepción, mermas y vencimientos.
+
+\subsection*{\faChartBar\ Reportes}
+Exporta datos a Excel para análisis personalizado.
+
+\subsection*{\faUserCog\ Administración}
+Gestión de usuarios y permisos (solo administradores).
+
+\section{Requisitos}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Componente} & \textbf{Requisito} \\
+\midrule
+Navegador & Chrome, Firefox, Safari o Edge (versiones recientes) \\
+Conexión & Internet estable \\
+Resolución & Mínimo 1024×768 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{tipbox}
+SIPUD funciona en computadores, tablets y celulares. La interfaz se adapta automáticamente al tamaño de tu pantalla.
+\end{tipbox}
+
+% ============================================
+% CAPÍTULO 2: PRIMEROS PASOS
+% ============================================
+\chapter{Primeros Pasos}
+
+\section{Iniciar Sesión}
+
+\begin{stepbox}{Paso 1: Acceder al sistema}
+\begin{enumerate}
+    \item Abre tu navegador
+    \item Ingresa a: \texttt{http://[servidor]:5006}
+    \item Ingresa usuario y contraseña
+    \item Haz clic en \textbf{Iniciar Sesión}
+\end{enumerate}
+\end{stepbox}
+
+\begin{tipbox}
+Si olvidaste tu contraseña, haz clic en \textit{¿Olvidaste tu contraseña?} y sigue las instrucciones por email.
+\end{tipbox}
+
+\section{Seleccionar Empresa (Tenant)}
+
+Si trabajas con varias empresas, selecciona la correcta después del login.
+
+\begin{warningbox}
+Los datos de cada empresa están separados. Verifica que estés en la empresa correcta antes de trabajar.
+\end{warningbox}
+
+\section{Navegar por el Sistema}
+
+\begin{itemize}
+    \item \textbf{Menú lateral izquierdo:} Acceso a todos los módulos
+    \item \textbf{Barra superior:} Cambiar empresa, notificaciones, tu perfil
+    \item \textbf{Dashboard central:} Métricas y acceso rápido
+\end{itemize}
+
+\section{Cerrar Sesión}
+
+Haz clic en tu nombre (esquina superior derecha) → \textbf{Cerrar Sesión}.
+
+\begin{infobox}
+Por seguridad, el sistema cierra tu sesión automáticamente después de 30 minutos sin actividad.
+\end{infobox}
+
+% ============================================
+% CAPÍTULO 3: DASHBOARD
+% ============================================
+\chapter{Dashboard}
+
+El Dashboard es tu panel de control. Aquí ves el estado general de tu negocio:
+
+\begin{itemize}
+    \item \textbf{Total Productos:} Cuántos productos tienes en catálogo
+    \item \textbf{Ventas del Mes:} Número de ventas del mes actual
+    \item \textbf{Stock Crítico:} Productos con poco stock
+    \item \textbf{Pedidos Pendientes:} Órdenes de compra sin recibir
+\end{itemize}
+
+\begin{tipbox}
+Haz clic en cualquier métrica para ver más detalles.
+\end{tipbox}
+
+% ============================================
+% CAPÍTULO 4: PRODUCTOS
+% ============================================
+\chapter{Productos}
+
+\section{Ver Catálogo}
+
+En el menú lateral: \textbf{Productos} → verás la tabla con todos tus productos.
+
+\subsection*{Códigos de Color del Stock}
+\begin{itemize}
+    \item \textcolor{sipudgreen}{\textbf{Verde:}} Stock normal
+    \item \textcolor{sipudorange}{\textbf{Naranja:}} Stock bajo
+    \item \textcolor{sipudred}{\textbf{Rojo:}} Stock crítico o agotado
+\end{itemize}
+
+\section{Crear Producto}
+
+\begin{stepbox}{Agregar un nuevo producto}
+\begin{enumerate}
+    \item Haz clic en \textbf{Nuevo Producto}
+    \item Completa:
+    \begin{itemize}
+        \item \textbf{Nombre:} Nombre del producto
+        \item \textbf{SKU:} Código único (opcional, se genera automático)
+        \item \textbf{Categoría:} Tipo de producto
+        \item \textbf{Precio Base:} Precio de venta
+        \item \textbf{Stock Crítico:} Nivel mínimo de alerta
+    \end{itemize}
+    \item Haz clic en \textbf{Guardar Producto}
+\end{enumerate}
+\end{stepbox}
+
+\section{Bundles o Packs}
+
+Un \textbf{bundle} es un pack que contiene otros productos. Por ejemplo: una caja de 12 galletas.
+
+\begin{tipbox}
+El stock de bundles se calcula automáticamente según sus componentes. Para tener bundles disponibles, debes \textit{ensamblarlos} en el módulo de Bodega.
+\end{tipbox}
+
+\subsection*{Crear un Bundle}
+\begin{enumerate}
+    \item Crea el producto bundle normalmente
+    \item Edítalo y agrega los \textbf{Componentes del Bundle}
+    \item Indica la cantidad de cada componente
+    \item Guarda los cambios
+\end{enumerate}
+
+\section{Editar y Eliminar}
+
+\begin{itemize}
+    \item \textbf{Editar:} Haz clic en \faEdit\ junto al producto
+    \item \textbf{Eliminar:} Haz clic en \faTrash\ (solo si no tiene stock ni ventas)
+\end{itemize}
+
+\begin{warningbox}
+No puedes eliminar productos que tengan stock, ventas o pedidos asociados. Primero resuelve esas dependencias.
+\end{warningbox}
+
+% ============================================
+% CAPÍTULO 5: VENTAS
+% ============================================
+\chapter{Ventas}
+
+\section{Tipos de Venta}
+
+SIPUD maneja dos modalidades:
+
+\begin{enumerate}
+    \item \textbf{Con Despacho:} Entregas a domicilio con seguimiento
+    \item \textbf{En Local:} Venta en mostrador con entrega inmediata
+\end{enumerate}
+
+\section{Crear Venta con Despacho}
+
+\begin{stepbox}{Nueva venta con entrega}
+\begin{enumerate}
+    \item Menú → \textbf{Ventas} → \textbf{Nueva Venta}
+    \item Completa datos del cliente:
+    \begin{itemize}
+        \item Nombre completo
+        \item Dirección de entrega
+        \item Teléfono
+        \item Tipo: \textit{Con Despacho}
+    \end{itemize}
+    \item Agrega productos:
+    \begin{itemize}
+        \item Busca el producto
+        \item Ingresa cantidad
+        \item Clic en \textbf{Agregar al Carrito}
+    \end{itemize}
+    \item (Opcional) Registra pago inicial:
+    \begin{itemize}
+        \item Marca \textit{Registrar Pago Inicial}
+        \item Monto y vía de pago
+    \end{itemize}
+    \item Clic en \textbf{Confirmar y Crear Venta}
+\end{enumerate}
+\end{stepbox}
+
+\begin{tipbox}
+Puedes dejar el pago pendiente y registrar abonos después desde el botón \textbf{Actualizar}.
+\end{tipbox}
+
+\section{Crear Venta en Local}
+
+Igual que la anterior, pero:
+\begin{itemize}
+    \item Selecciona tipo: \textit{En Local}
+    \item No necesitas ingresar dirección
+    \item La venta se marca automáticamente como \textit{Entregada}
+\end{itemize}
+
+\section{Estados de Entrega}
+
+Las ventas con despacho pasan por estos estados:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Estado} & \textbf{Descripción} \\
+\midrule
+Pendiente & Venta registrada, sin preparar \\
+En Preparación & Empacando productos \\
+En Tránsito & Pedido en camino \\
+Entregado & Entrega exitosa \\
+Con Observaciones & Entregado con incidencias \\
+Cancelado & Venta anulada \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Actualizar Estado}
+
+\begin{stepbox}{Cambiar estado de una venta}
+\begin{enumerate}
+    \item En la tabla de ventas, clic en \textbf{Actualizar}
+    \item Pestaña \textit{Estado de Entrega}
+    \item Selecciona el nuevo estado
+    \item (Opcional) Agrega observaciones
+    \item Clic en \textbf{Guardar Cambios}
+\end{enumerate}
+\end{stepbox}
+
+\begin{infobox}
+Cuando marcas una venta como \textit{Entregado}, el sistema registra automáticamente la fecha y hora.
+\end{infobox}
+
+\section{Gestión de Pagos}
+
+\subsection*{Estados de Pago}
+\begin{itemize}
+    \item \textcolor{sipudred}{\textbf{Pendiente:}} No hay pagos registrados
+    \item \textcolor{sipudorange}{\textbf{Parcial:}} Pago incompleto
+    \item \textcolor{sipudgreen}{\textbf{Pagado:}} Total pagado
+\end{itemize}
+
+\subsection*{Registrar Abono}
+\begin{enumerate}
+    \item Clic en \textbf{Actualizar} en la venta
+    \item Pestaña \textit{Pagos}
+    \item Sección \textit{Registrar Nuevo Pago}:
+    \begin{itemize}
+        \item Monto
+        \item Vía de pago (efectivo, transferencia, etc.)
+        \item Referencia (opcional)
+    \end{itemize}
+    \item Clic en \textbf{Registrar Pago}
+\end{enumerate}
+
+\begin{tipbox}
+Puedes registrar múltiples abonos hasta completar el total. Cada pago queda en el historial para auditoría.
+\end{tipbox}
+
+\section{Exportar Ventas}
+
+Clic en \textbf{Exportar a Excel} para descargar todas las ventas con detalles completos.
+
+% ============================================
+% CAPÍTULO 6: BODEGA
+% ============================================
+\chapter{Bodega}
+
+El módulo de Bodega gestiona todo el flujo de entrada de inventario.
+
+\section{Submódulos}
+
+\begin{enumerate}
+    \item \textbf{Pedidos a Proveedores:} Órdenes de compra
+    \item \textbf{Recepción de Mercancía:} Entrada de productos
+    \item \textbf{Registro de Mermas:} Pérdidas de inventario
+    \item \textbf{Gestión de Vencimientos:} Monitoreo de fechas
+\end{enumerate}
+
+\section{Pedidos a Proveedores}
+
+\begin{stepbox}{Crear orden de compra}
+\begin{enumerate}
+    \item Menú → \textbf{Bodega} → \textbf{Pedidos a Proveedores}
+    \item Clic en \textbf{Nuevo Pedido}
+    \item Completa:
+    \begin{itemize}
+        \item Proveedor (o crea uno nuevo)
+        \item Número de factura
+        \item Monto total
+        \item Observaciones
+    \end{itemize}
+    \item Clic en \textbf{Crear Pedido}
+\end{enumerate}
+\end{stepbox}
+
+El pedido queda con estado \textit{Pendiente}, listo para recepcionar mercancía.
+
+\section{Recepción de Mercancía}
+
+Este es el paso clave para actualizar tu inventario.
+
+\begin{stepbox}{Recepcionar productos}
+\begin{enumerate}
+    \item \textbf{Recepción de Mercancía} → selecciona pedido pendiente
+    \item Clic en \textbf{Recepcionar}
+    \item Para cada producto recibido:
+    \begin{itemize}
+        \item Selecciona producto
+        \item Ingresa cantidad
+        \item Código de lote (opcional, se autogenera)
+        \item \textbf{Fecha de vencimiento}
+    \end{itemize}
+    \item Agrega todos los productos del pedido
+    \item Clic en \textbf{Confirmar Recepción}
+\end{enumerate}
+\end{stepbox}
+
+\begin{successbox}
+El stock se actualiza inmediatamente y los productos quedan disponibles para venta.
+\end{successbox}
+
+\subsection*{Sistema de Lotes}
+
+Cada recepción crea \textbf{lotes} independientes con su propia fecha de vencimiento. Esto permite:
+\begin{itemize}
+    \item Trazabilidad completa
+    \item Control automático FIFO
+    \item Gestión precisa de vencimientos
+\end{itemize}
+
+\begin{infobox}
+\textbf{FIFO} (First In, First Out): El sistema descuenta stock siempre del lote más antiguo primero, reduciendo el riesgo de vencimientos.
+\end{infobox}
+
+\section{Registro de Mermas}
+
+Las mermas son pérdidas de inventario (vencidos, dañados, robados, etc.).
+
+\begin{stepbox}{Registrar una merma}
+\begin{enumerate}
+    \item \textbf{Registro de Mermas} → \textbf{Nueva Merma}
+    \item Completa:
+    \begin{itemize}
+        \item Producto afectado
+        \item Cantidad perdida
+        \item Razón (vencido, dañado, perdido, robo, otro)
+        \item Observaciones
+    \end{itemize}
+    \item Clic en \textbf{Registrar Merma}
+\end{enumerate}
+\end{stepbox}
+
+El sistema descuenta automáticamente el stock usando FIFO (del lote más antiguo primero).
+
+\begin{warningbox}
+No puedes registrar una merma mayor al stock disponible. El sistema te mostrará un error.
+\end{warningbox}
+
+\section{Gestión de Vencimientos}
+
+Monitorea las fechas de vencimiento de tus productos.
+
+\subsection*{Códigos de Color}
+\begin{itemize}
+    \item \textcolor{sipudred}{\textbf{Rojo:}} Vence en 7 días o menos (¡urgente!)
+    \item \textcolor{sipudorange}{\textbf{Naranja:}} Vence entre 8-30 días
+    \item \textcolor{sipudgreen}{\textbf{Verde:}} Más de 30 días
+\end{itemize}
+
+\begin{tipbox}
+Para productos próximos a vencer (rojos/naranjas):
+\begin{itemize}
+    \item Crea ofertas para acelerar la venta
+    \item Considera donaciones
+    \item Si ya venció, regístralo como merma
+\end{itemize}
+\end{tipbox}
+
+\section{Ensamblado de Bundles}
+
+Si usas bundles (packs), debes ensamblarlos aquí.
+
+\begin{stepbox}{Ensamblar bundles}
+\begin{enumerate}
+    \item \textbf{Ensamblado de Bundles}
+    \item Selecciona el bundle
+    \item Cantidad a ensamblar
+    \item El sistema verifica que haya stock de componentes
+    \item Clic en \textbf{Ensamblar}
+\end{enumerate}
+\end{stepbox}
+
+El sistema descuenta componentes (FIFO) y crea stock del bundle ensamblado.
+
+% ============================================
+% CAPÍTULO 7: ADMINISTRACIÓN
+% ============================================
+\chapter{Administración}
+
+\begin{warningbox}
+Este módulo solo está disponible para usuarios con rol \textbf{Administrador}.
+\end{warningbox}
+
+\section{Gestión de Usuarios}
+
+\subsection*{Crear Usuario}
+\begin{enumerate}
+    \item \textbf{Administración} → \textbf{Usuarios} → \textbf{Nuevo Usuario}
+    \item Completa: nombre de usuario, email, contraseña, rol
+    \item Clic en \textbf{Crear Usuario}
+\end{enumerate}
+
+\subsection*{Roles Disponibles}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Rol} & \textbf{Acceso} \\
+\midrule
+Admin & Todo (incluyendo administración) \\
+Manager & Productos, ventas, bodega, reportes \\
+Warehouse & Solo bodega y consulta de productos \\
+Sales & Solo ventas y consulta de productos \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Desactivar Usuario}
+
+En lugar de eliminar, es mejor \textit{desactivar}:
+\begin{itemize}
+    \item Edita el usuario
+    \item Marca \textit{Usuario Inactivo}
+    \item El usuario no podrá iniciar sesión
+    \item Sus registros históricos se mantienen
+\end{itemize}
+
+\section{Registro de Actividades}
+
+Historial completo de todas las operaciones del sistema:
+\begin{itemize}
+    \item Quién hizo qué y cuándo
+    \item IP y navegador utilizado
+    \item Útil para auditoría y seguridad
+\end{itemize}
+
+\begin{tipbox}
+Usa los filtros (usuario, módulo, acción, fecha) para encontrar actividades específicas.
+\end{tipbox}
+
+% ============================================
+% CAPÍTULO 8: REPORTES
+% ============================================
+\chapter{Reportes}
+
+\section{Exportar Ventas}
+
+\begin{enumerate}
+    \item \textbf{Reportes} → \textbf{Ventas}
+    \item (Opcional) Aplica filtros: fechas, estados, cliente
+    \item Clic en \textbf{Exportar a Excel}
+\end{enumerate}
+
+El archivo incluye: ID, fecha, cliente, dirección, total, estado entrega, estado pago, etc.
+
+\section{Exportar Inventario}
+
+\subsection*{Stock Actual}
+Productos con stock disponible, stock crítico y estado.
+
+\subsection*{Lotes Detallados}
+Cada lote individual con fecha de vencimiento, cantidad y proveedor.
+
+\begin{tipbox}
+Los archivos Excel están optimizados para usar con \textbf{tablas dinámicas}. Así puedes crear análisis personalizados sin modificar SIPUD.
+\end{tipbox}
+
+% ============================================
+% CAPÍTULO 9: PREGUNTAS FRECUENTES
+% ============================================
+\chapter{Preguntas Frecuentes}
+
+\section{Acceso}
+
+\textbf{¿Olvidé mi contraseña, qué hago?}
+
+En login → \textit{¿Olvidaste tu contraseña?} → ingresa tu email → sigue las instrucciones.
+
+\medskip
+
+\textbf{¿Puedo usar SIPUD desde mi celular?}
+
+Sí, SIPUD es responsive y funciona en cualquier dispositivo.
+
+\section{Productos}
+
+\textbf{¿Por qué no puedo eliminar un producto?}
+
+Solo puedes eliminar productos que NO tengan:
+\begin{itemize}
+    \item Stock en bodega
+    \item Ventas asociadas
+    \item Pedidos pendientes
+\end{itemize}
+
+\medskip
+
+\textbf{¿Cómo funciona el stock de bundles?}
+
+Se calcula automáticamente según componentes disponibles. Para tener bundles, debes ensamblarlos en Bodega.
+
+\section{Ventas}
+
+\textbf{¿Puedo modificar una venta después de crearla?}
+
+Puedes actualizar: estado de entrega, agregar pagos y modificar observaciones. No puedes cambiar productos ni cantidades.
+
+\medskip
+
+\textbf{¿Puedo registrar abonos parciales?}
+
+Sí, SIPUD soporta múltiples pagos hasta completar el total.
+
+\section{Bodega}
+
+\textbf{¿Qué es FIFO?}
+
+First In, First Out: el sistema descuenta stock siempre del lote más antiguo primero.
+
+\medskip
+
+\textbf{¿Puedo tener varios lotes del mismo producto?}
+
+Sí, cada recepción crea un lote separado. El sistema los gestiona automáticamente.
+
+\section{Problemas Comunes}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}p{5cm}p{6cm}@{}}
+\toprule
+\textbf{Error} & \textbf{Solución} \\
+\midrule
+Stock insuficiente & Recepciona más mercancía \\
+Sesión expirada & Vuelve a iniciar sesión \\
+Fecha de vencimiento inválida & No puede estar en el pasado \\
+Sin permisos & Contacta al administrador \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{infobox}
+\textbf{¿Necesitas más ayuda?}
+
+Contacta a:
+\begin{itemize}
+    \item Tu administrador del sistema
+    \item Soporte técnico: \texttt{soporte@sipud.com}
+\end{itemize}
+
+Incluye: descripción del problema, pasos para reproducirlo y capturas de pantalla.
+\end{infobox}
+
+% ============================================
+% APÉNDICE: GLOSARIO
+% ============================================
+\chapter*{Glosario}
+\addcontentsline{toc}{chapter}{Glosario}
+
+\begin{description}[labelwidth=3cm,leftmargin=3.5cm]
+    \item[Bundle] Pack o caja compuesta por otros productos.
+    
+    \item[FIFO] First In, First Out. Método donde se usan primero los productos más antiguos.
+    
+    \item[Lote] Conjunto de productos con misma fecha de vencimiento.
+    
+    \item[Merma] Pérdida de inventario por vencimiento, daño, robo, etc.
+    
+    \item[Multi-tenant] Sistema que gestiona múltiples empresas separadamente.
+    
+    \item[SKU] Código único de producto.
+    
+    \item[Stock Crítico] Nivel mínimo de alerta de inventario.
+    
+    \item[Tenant] Empresa u organización en el sistema.
+\end{description}
+
+\vfill
+
+\begin{center}
+\begin{tcolorbox}[width=0.8\textwidth,colback=sipudlight,colframe=sipudblue,arc=5mm]
+\centering
+\Large\textbf{¡Gracias por usar SIPUD!}\\[0.3cm]
+\normalsize Tu socio en la gestión empresarial
+\end{tcolorbox}
+\end{center}
+
+\end{document}

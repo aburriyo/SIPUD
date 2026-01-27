@@ -218,10 +218,7 @@ function receivingPage() {
             try {
                 const response = await fetch('/api/products');
                 const data = await response.json();
-                // La API retorna directamente un array de productos, no un objeto {success, products}
-                if (Array.isArray(data)) {
-                    this.products = data;
-                } else if (data.success && data.products) {
+                if (data.success) {
                     this.products = data.products;
                 }
             } catch (error) {

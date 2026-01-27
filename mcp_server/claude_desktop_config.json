@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "sipud-inventory": {
+      "command": "/opt/anaconda3/bin/python3",
+      "args": [
+        "/Users/bchavez/Proyectos/SIPUD/mcp_server/server.py"
+      ],
+      "env": {
+        "MONGODB_HOST": "localhost",
+        "MONGODB_PORT": "27017",
+        "MONGODB_DB": "inventory_db",
+        "MCP_DEFAULT_TENANT": "puerto-distribucion"
+      }
+    }
+  }
+}
+

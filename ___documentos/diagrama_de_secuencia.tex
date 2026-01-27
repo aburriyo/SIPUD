@@ -1,0 +1,216 @@
+%!TEX encoding = UTF-8 Unicode
+\documentclass[11pt, a4paper, landscape]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{tikz}
+\usepackage{geometry}
+
+\geometry{margin=1cm}
+
+% Colores
+\definecolor{clienteColor}{HTML}{B9E0A5}
+\definecolor{trabajadorColor}{HTML}{FFE066}
+\definecolor{sipudColor}{HTML}{87CEEB}
+\definecolor{repartidorColor}{HTML}{FFAAAA}
+
+\usetikzlibrary{arrows.meta, positioning, calc}
+
+\begin{document}
+
+\begin{center}
+    {\Large\bfseries Diagrama de Secuencia - Proceso de Venta SIPUD}\\[0.5cm]
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}[
+    actor/.style={rectangle, rounded corners=8pt, minimum width=2.5cm, minimum height=0.8cm, font=\small\bfseries, draw, thick},
+    msg/.style={-{Stealth[length=2mm]}, thick},
+    msgback/.style={{Stealth[length=2mm]}-, thick, dashed},
+    selfmsg/.style={thick},
+    label/.style={font=\scriptsize, fill=white, inner sep=1pt}
+]
+
+% Posiciones X de los actores
+\def\xCliente{0}
+\def\xTrabajador{5}
+\def\xSipud{10}
+\def\xRepartidor{15}
+
+% Actores superiores
+\node[actor, fill=clienteColor] (cliente) at (\xCliente, 0) {Cliente};
+\node[actor, fill=trabajadorColor] (trabajador) at (\xTrabajador, 0) {Trabajador/Agente};
+\node[actor, fill=sipudColor] (sipud) at (\xSipud, 0) {SIPUD};
+\node[actor, fill=repartidorColor] (repartidor) at (\xRepartidor, 0) {Repartidor};
+
+% Altura final del diagrama
+\def\yFinal{-26}
+
+% Líneas de vida (dashed lines)
+\draw[dashed, thick] (\xCliente, -0.5) -- (\xCliente, \yFinal);
+\draw[dashed, thick] (\xTrabajador, -0.5) -- (\xTrabajador, \yFinal);
+\draw[dashed, thick] (\xSipud, -0.5) -- (\xSipud, \yFinal);
+\draw[dashed, thick] (\xRepartidor, -0.5) -- (\xRepartidor, \yFinal);
+
+% Barras de activación (activation boxes)
+% Cliente activo
+\fill[clienteColor!50] ($(\xCliente, -1.0)+(-.15,0)$) rectangle ($(\xCliente, -2.2)+(.15,0)$);
+\fill[clienteColor!50] ($(\xCliente, -5.6)+(-.15,0)$) rectangle ($(\xCliente, -6.4)+(.15,0)$);
+\fill[clienteColor!50] ($(\xCliente, -6.8)+(-.15,0)$) rectangle ($(\xCliente, -10.2)+(.15,0)$);
+\fill[clienteColor!50] ($(\xCliente, -18.4)+(-.15,0)$) rectangle ($(\xCliente, -20.8)+(.15,0)$);
+
+% Trabajador activo
+\fill[trabajadorColor!50] ($(\xTrabajador, -1.8)+(-.15,0)$) rectangle ($(\xTrabajador, -4.6)+(.15,0)$);
+\fill[trabajadorColor!50] ($(\xTrabajador, -5.2)+(-.15,0)$) rectangle ($(\xTrabajador, -6.0)+(.15,0)$);
+\fill[trabajadorColor!50] ($(\xTrabajador, -6.8)+(-.15,0)$) rectangle ($(\xTrabajador, -17.0)+(.15,0)$);
+\fill[trabajadorColor!50] ($(\xTrabajador, -21.0)+(-.15,0)$) rectangle ($(\xTrabajador, -24.8)+(.15,0)$);
+
+% SIPUD activo
+\fill[sipudColor!50] ($(\xSipud, -3.8)+(-.15,0)$) rectangle ($(\xSipud, -4.6)+(.15,0)$);
+\fill[sipudColor!50] ($(\xSipud, -11.8)+(-.15,0)$) rectangle ($(\xSipud, -16.2)+(.15,0)$);
+\fill[sipudColor!50] ($(\xSipud, -22.2)+(-.15,0)$) rectangle ($(\xSipud, -24.8)+(.15,0)$);
+
+% Repartidor activo
+\fill[repartidorColor!50] ($(\xRepartidor, -16.8)+(-.15,0)$) rectangle ($(\xRepartidor, -19.4)+(.15,0)$);
+
+% Mensajes
+\def\y{-1.2}
+
+% 1. Intención de compra
+\draw[msg] (\xCliente, \y) -- node[label, above] {Envía intención de compra por WhatsApp} (\xTrabajador, \y);
+
+% 2. Lee y responde
+\def\y{-2.0}
+\draw[msgback] (\xCliente, \y) -- node[label, above] {Lee y responde al mensaje} (\xTrabajador, \y);
+
+% 3. Analiza intención
+\def\y{-2.8}
+\draw[selfmsg] (\xTrabajador, \y) -- ++(1.2, 0) -- ++(0, -0.4) -- ++(-1.2, 0);
+\node[label, right] at (\xTrabajador + 1.3, \y - 0.2) {Analiza intención de compra};
+
+% 4. Consulta stock
+\def\y{-3.8}
+\draw[msg] (\xTrabajador, \y) -- node[label, above] {Consulta stock (validación)} (\xSipud, \y);
+\def\y{-4.4}
+\draw[msgback] (\xTrabajador, \y) -- node[label, above] {Responde disponibilidad de stock} (\xSipud, \y);
+
+% 5. Envía precios
+\def\y{-5.2}
+\draw[msg] (\xTrabajador, \y) -- node[label, above] {Envía precios e información de productos} (\xCliente, \y);
+
+% 6. Recibe presupuesto
+\def\y{-5.8}
+\draw[selfmsg] (\xCliente, \y) -- ++(-1.0, 0) -- ++(0, -0.4) -- ++(1.0, 0);
+\node[label, left] at (\xCliente - 1.1, \y - 0.2) {Recibe presupuesto};
+
+% 7. Confirma carrito
+\def\y{-6.8}
+\draw[msg] (\xCliente, \y) -- node[label, above] {Confirma carrito} (\xTrabajador, \y);
+
+% 8. Solicita datos
+\def\y{-7.6}
+\draw[msg] (\xTrabajador, \y) -- node[label, above] {Solicita datos (nombre, dirección, teléfono)} (\xCliente, \y);
+
+% 9. Envía datos personales
+\def\y{-8.4}
+\draw[msg] (\xCliente, \y) -- node[label, above] {Envía datos personales} (\xTrabajador, \y);
+
+% 10. Detalle pedido
+\def\y{-9.2}
+\draw[msg] (\xTrabajador, \y) -- node[label, above] {Envía detalle del pedido para confirmación final} (\xCliente, \y);
+
+% 11. Confirma pedido
+\def\y{-10.0}
+\draw[msg] (\xCliente, \y) -- node[label, above] {Confirma pedido final} (\xTrabajador, \y);
+
+% 12. Registra en Excel
+\def\y{-10.8}
+\draw[selfmsg] (\xTrabajador, \y) -- ++(1.2, 0) -- ++(0, -0.5) -- ++(-1.2, 0);
+\node[label, right] at (\xTrabajador + 1.3, \y - 0.25) {Registra venta en Excel};
+
+% 13. Exporta a SIPUD
+\def\y{-11.8}
+\draw[msg] (\xTrabajador, \y) -- node[label, above] {Exporta venta a SIPUD} (\xSipud, \y);
+
+% 14. Registra nueva venta
+\def\y{-12.6}
+\draw[selfmsg] (\xSipud, \y) -- ++(1.5, 0) -- ++(0, -0.4) -- ++(-1.5, 0);
+\node[label, right] at (\xSipud + 1.6, \y - 0.2) {Registra nueva venta};
+
+% 15. Disminuye stock
+\def\y{-13.4}
+\draw[selfmsg] (\xSipud, \y) -- ++(1.5, 0) -- ++(0, -0.4) -- ++(-1.5, 0);
+\node[label, right] at (\xSipud + 1.6, \y - 0.2) {Disminuye stock en pendiente};
+
+% 16. Genera orden
+\def\y{-14.2}
+\draw[selfmsg] (\xSipud, \y) -- ++(1.5, 0) -- ++(0, -0.4) -- ++(-1.5, 0);
+\node[label, right] at (\xSipud + 1.6, \y - 0.2) {Genera orden de despacho};
+
+% 17. Verifica pago
+\def\y{-15.0}
+\draw[selfmsg] (\xSipud, \y) -- ++(1.5, 0) -- ++(0, -0.4) -- ++(-1.5, 0);
+\node[label, right] at (\xSipud + 1.6, \y - 0.2) {Verifica método de pago};
+
+% 18. Envía orden de despacho
+\def\y{-16.0}
+\draw[msgback] (\xTrabajador, \y) -- node[label, above] {Envía orden de despacho} (\xSipud, \y);
+
+% 19. Entrega hoja de ruta
+\def\y{-16.8}
+\draw[msg] (\xTrabajador, \y) -- node[label, above] {Entrega hoja de ruta} (\xRepartidor, \y);
+
+% 20. Confirma recepción
+\def\y{-17.6}
+\draw[selfmsg] (\xRepartidor, \y) -- ++(1.5, 0) -- ++(0, -0.4) -- ++(-1.5, 0);
+\node[label, right] at (\xRepartidor + 1.6, \y - 0.2) {Confirma recepción de hoja de ruta};
+
+% 21. Entrega pedido al cliente
+\def\y{-18.4}
+\draw[msg] (\xRepartidor, \y) -- node[label, above] {Entrega pedido} (\xCliente, \y);
+
+% 22. Confirma recepción del pedido
+\def\y{-19.2}
+\draw[msgback] (\xRepartidor, \y) -- node[label, above] {Confirma recepción y firma} (\xCliente, \y);
+
+% === SECCIÓN DE CONCILIACIÓN BANCARIA ===
+
+% 23. Cliente realiza pago
+\def\y{-20.2}
+\draw[selfmsg] (\xCliente, \y) -- ++(-1.0, 0) -- ++(0, -0.5) -- ++(1.0, 0);
+\node[label, left] at (\xCliente - 1.1, \y - 0.25) {Realiza transferencia bancaria};
+
+% 24. Trabajador verifica pago
+\def\y{-21.2}
+\draw[selfmsg] (\xTrabajador, \y) -- ++(1.2, 0) -- ++(0, -0.5) -- ++(-1.2, 0);
+\node[label, right] at (\xTrabajador + 1.3, \y - 0.25) {Verifica pago en cuenta bancaria};
+
+% 25. Registra conciliación en SIPUD
+\def\y{-22.2}
+\draw[msg] (\xTrabajador, \y) -- node[label, above] {Registra conciliación de pago} (\xSipud, \y);
+
+% 26. SIPUD actualiza estado
+\def\y{-23.0}
+\draw[selfmsg] (\xSipud, \y) -- ++(1.5, 0) -- ++(0, -0.4) -- ++(-1.5, 0);
+\node[label, right] at (\xSipud + 1.6, \y - 0.2) {Actualiza estado a 'Pagada'};
+
+% 27. SIPUD cierra orden
+\def\y{-23.8}
+\draw[selfmsg] (\xSipud, \y) -- ++(1.5, 0) -- ++(0, -0.4) -- ++(-1.5, 0);
+\node[label, right] at (\xSipud + 1.6, \y - 0.2) {Cierra orden de venta};
+
+% 28. Confirmación de conciliación
+\def\y{-24.6}
+\draw[msgback] (\xTrabajador, \y) -- node[label, above] {Confirma venta conciliada} (\xSipud, \y);
+
+% Actores inferiores (conectan con las líneas de vida)
+\node[actor, fill=clienteColor] at (\xCliente, \yFinal) {Cliente};
+\node[actor, fill=trabajadorColor] at (\xTrabajador, \yFinal) {Trabajador/Agente};
+\node[actor, fill=sipudColor] at (\xSipud, \yFinal) {SIPUD};
+\node[actor, fill=repartidorColor] at (\xRepartidor, \yFinal) {Repartidor};
+
+\end{tikzpicture}
+\end{center}
+
+\end{document}

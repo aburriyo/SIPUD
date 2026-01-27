@@ -1,0 +1,44 @@
+\babel@toc {spanish}{}\relax 
+\contentsline {chapter}{\numberline {1}Bienvenido a SIPUD}{5}{chapter.1}%
+\contentsline {section}{\numberline {1.1}¿Qué es SIPUD?}{5}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Módulos Principales}{5}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Requisitos}{6}{section.1.3}%
+\contentsline {chapter}{\numberline {2}Primeros Pasos}{7}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Iniciar Sesión}{7}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Seleccionar Empresa (Tenant)}{7}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Navegar por el Sistema}{7}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Cerrar Sesión}{7}{section.2.4}%
+\contentsline {chapter}{\numberline {3}Dashboard}{9}{chapter.3}%
+\contentsline {chapter}{\numberline {4}Productos}{11}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Ver Catálogo}{11}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Crear Producto}{11}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Bundles o Packs}{11}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Editar y Eliminar}{12}{section.4.4}%
+\contentsline {chapter}{\numberline {5}Ventas}{13}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Tipos de Venta}{13}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Crear Venta con Despacho}{13}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Crear Venta en Local}{14}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Estados de Entrega}{14}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Actualizar Estado}{14}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Gestión de Pagos}{14}{section.5.6}%
+\contentsline {section}{\numberline {5.7}Exportar Ventas}{15}{section.5.7}%
+\contentsline {chapter}{\numberline {6}Bodega}{17}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Submódulos}{17}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Pedidos a Proveedores}{17}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Recepción de Mercancía}{17}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Registro de Mermas}{18}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Gestión de Vencimientos}{19}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Ensamblado de Bundles}{19}{section.6.6}%
+\contentsline {chapter}{\numberline {7}Administración}{21}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Gestión de Usuarios}{21}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Registro de Actividades}{21}{section.7.2}%
+\contentsline {chapter}{\numberline {8}Reportes}{23}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Exportar Ventas}{23}{section.8.1}%
+\contentsline {section}{\numberline {8.2}Exportar Inventario}{23}{section.8.2}%
+\contentsline {chapter}{\numberline {9}Preguntas Frecuentes}{25}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Acceso}{25}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Productos}{25}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Ventas}{25}{section.9.3}%
+\contentsline {section}{\numberline {9.4}Bodega}{25}{section.9.4}%
+\contentsline {section}{\numberline {9.5}Problemas Comunes}{26}{section.9.5}%
+\contentsline {chapter}{Glosario}{27}{chapter*.1}%

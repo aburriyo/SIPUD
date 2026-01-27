@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"license_plate":{"$numberInt":"1"}},"name":"license_plate_1","background":false,"unique":true,"sparse":false}],"uuid":"d651f1c835e44bc992132230dbfec372","collectionName":"trucks","type":"collection"}

@@ -1,0 +1,1638 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{tocloft}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage{tcolorbox}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{array}
+
+% Configuración de geometría
+\geometry{
+    left=2.5cm,
+    right=2.5cm,
+    top=3cm,
+    bottom=3cm
+}
+
+% Configuración de colores corporativos
+\definecolor{sipudblue}{RGB}{37, 99, 235}
+\definecolor{sipudgray}{RGB}{107, 114, 128}
+\definecolor{sipudlight}{RGB}{239, 246, 255}
+\definecolor{sipudgreen}{RGB}{34, 197, 94}
+\definecolor{sipudred}{RGB}{239, 68, 68}
+\definecolor{sipudorange}{RGB}{249, 115, 22}
+
+% Configuración de hyperref
+\hypersetup{
+    colorlinks=true,
+    linkcolor=sipudblue,
+    urlcolor=sipudblue,
+    citecolor=sipudblue,
+    pdfborder={0 0 0}
+}
+
+% Configuración de encabezados y pies de página
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{\textcolor{sipudblue}{SIPUD}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.5pt}
+
+% Configuración de cajas de información
+\newtcolorbox{infobox}[1]{
+    colback=sipudlight,
+    colframe=sipudblue,
+    fonttitle=\bfseries,
+    title=#1
+}
+
+\newtcolorbox{warningbox}[1]{
+    colback=orange!5,
+    colframe=sipudorange,
+    fonttitle=\bfseries,
+    title=#1
+}
+
+\newtcolorbox{successbox}[1]{
+    colback=green!5,
+    colframe=sipudgreen,
+    fonttitle=\bfseries,
+    title=#1
+}
+
+% Configuración del título
+\title{
+    \vspace{-2cm}
+    {\Huge\textbf{SIPUD}}\\[0.5cm]
+    {\Large Sistema Integrado de Gestión}\\
+    {\Large de Inventario, Ventas y Logística}\\[1cm]
+    {\large Manual de Usuario}\\[0.5cm]
+    \includegraphics[width=0.3\textwidth]{___documentos/imagenes/logo_sipud.png}
+}
+\author{Versión 1.0}
+\date{Enero 2026}
+
+\begin{document}
+
+% ============================================
+% PORTADA
+% ============================================
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    
+    % Logo del sistema (placeholder)
+    \begin{tikzpicture}
+        \draw[sipudblue, line width=3pt, rounded corners=10pt] (0,0) rectangle (8,8);
+        \node[sipudblue] at (4,5.5) {\Huge\textbf{SIPUD}};
+        \node[sipudgray] at (4,3.5) {\Large Sistema Integrado de};
+        \node[sipudgray] at (4,2.8) {\Large Gestión Empresarial};
+        \draw[sipudblue, line width=2pt] (2,1.5) -- (6,1.5);
+    \end{tikzpicture}
+    
+    \vspace{2cm}
+    
+    {\Huge\textbf{Manual de Usuario}}\\[0.5cm]
+    {\Large Guía Completa del Sistema}\\[2cm]
+    
+    {\large\textit{Versión 1.0 - Enero 2026}}\\[0.5cm]
+    
+    \vfill
+    
+    {\large\textbf{Sistema ERP Multi-Tenant}}\\
+    {\normalsize Gestión de Inventario, Ventas, Bodega y Logística}
+    
+\end{titlepage}
+
+% ============================================
+% ÍNDICE
+% ============================================
+\tableofcontents
+\newpage
+
+% ============================================
+% CAPÍTULO 1: INTRODUCCIÓN
+% ============================================
+\chapter{Introducción al Sistema SIPUD}
+
+\section{¿Qué es SIPUD?}
+
+SIPUD (\textbf{Sistema Integrado de Gestión}) es una plataforma ERP completa diseñada para gestionar todas las operaciones comerciales de su empresa. El sistema integra módulos de inventario, ventas, bodega y administración en una sola interfaz intuitiva y fácil de usar.
+
+\begin{infobox}{Características Principales}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Multi-tenant:} Soporte para múltiples empresas en una sola instalación
+    \item \textbf{Gestión Completa:} Inventario, ventas, bodega y logística integrados
+    \item \textbf{Control FIFO:} Sistema automático de primera entrada, primera salida
+    \item \textbf{Trazabilidad:} Seguimiento completo de lotes y movimientos
+    \item \textbf{Reportes:} Exportación de datos a Excel y análisis en tiempo real
+    \item \textbf{Responsive:} Acceso desde computadores, tablets y móviles
+\end{itemize}
+\end{infobox}
+
+\section{Módulos del Sistema}
+
+SIPUD está organizado en módulos funcionales que cubren todas las áreas de su negocio:
+
+\subsection{Dashboard Principal}
+Panel de control con métricas clave y acceso rápido a todas las funcionalidades.
+
+\subsection{Gestión de Productos}
+Catálogo maestro con SKU, categorías, precios, stock y control de bundles (packs/cajas).
+
+\subsection{Módulo de Ventas}
+Sistema completo de ventas con dos modalidades:
+\begin{itemize}
+    \item \textbf{Con Despacho:} Ventas con entrega a domicilio y seguimiento completo
+    \item \textbf{En Local:} Ventas en mostrador con entrega inmediata
+\end{itemize}
+
+\subsection{Módulo de Bodega}
+Gestión integral del almacén con cuatro submódulos:
+\begin{itemize}
+    \item \textbf{Pedidos a Proveedores:} Órdenes de compra y seguimiento
+    \item \textbf{Recepción de Mercancía:} Entrada de productos con lotes
+    \item \textbf{Registro de Mermas:} Control de pérdidas y desperdicios
+    \item \textbf{Gestión de Vencimientos:} Monitoreo de fechas de caducidad
+\end{itemize}
+
+\subsection{Panel de Administración}
+Gestión de usuarios, roles, permisos y registro de actividades del sistema.
+
+\subsection{Reportes}
+Exportación de datos a Excel y análisis de ventas, inventario y operaciones.
+
+\section{Requisitos del Sistema}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Componente} & \textbf{Requisito} \\
+\midrule
+Navegador Web & Chrome 90+, Firefox 88+, Safari 14+, Edge 90+ \\
+Resolución & Mínimo 1024x768 (recomendado 1920x1080) \\
+Conexión & Internet estable (mínimo 2 Mbps) \\
+Sistema Operativo & Windows 10+, macOS 10.15+, Linux \\
+\bottomrule
+\end{tabular}
+\caption{Requisitos técnicos para usar SIPUD}
+\end{table}
+
+\section{Convenciones de este Manual}
+
+En este manual utilizamos las siguientes convenciones:
+
+\begin{infobox}{Información Importante}
+Estas cajas azules contienen información relevante y consejos útiles.
+\end{infobox}
+
+\begin{warningbox}{Advertencia}
+Estas cajas naranjas indican precauciones o puntos de atención importantes.
+\end{warningbox}
+
+\begin{successbox}{Operación Exitosa}
+Estas cajas verdes indican confirmaciones o resultados exitosos.
+\end{successbox}
+
+\texttt{Texto en formato código} indica URLs, rutas o elementos técnicos.
+
+\textbf{Texto en negrita} indica botones, campos de formulario o elementos de interfaz.
+
+% ============================================
+% CAPÍTULO 2: ACCESO Y LOGIN
+% ============================================
+\chapter{Acceso al Sistema}
+
+\section{Iniciar Sesión}
+
+Para acceder a SIPUD, siga estos pasos:
+
+\begin{enumerate}
+    \item Abra su navegador web
+    \item Ingrese la URL del sistema: \texttt{http://[servidor]:5006}
+    \item Aparecerá la pantalla de inicio de sesión
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{___documentos/imagenes/pantalla_login.png}
+\caption{Pantalla de inicio de sesión de SIPUD}
+\end{figure}
+
+\subsection{Credenciales de Acceso}
+
+Complete el formulario de inicio de sesión:
+
+\begin{enumerate}
+    \item \textbf{Usuario:} Ingrese su nombre de usuario asignado
+    \item \textbf{Contraseña:} Ingrese su contraseña (distingue mayúsculas/minúsculas)
+    \item Click en el botón \textbf{Iniciar Sesión}
+\end{enumerate}
+
+\begin{infobox}{Primera vez usando el sistema}
+Si es su primer acceso, contacte al administrador del sistema para obtener sus credenciales. Por seguridad, se recomienda cambiar la contraseña después del primer inicio de sesión.
+\end{infobox}
+
+\section{Selección de Tenant (Multi-Empresa)}
+
+Si su instalación de SIPUD gestiona múltiples empresas, después del login verá un selector de tenant:
+
+\begin{enumerate}
+    \item Seleccione la empresa con la que desea trabajar
+    \item El sistema cargará los datos correspondientes a esa organización
+    \item Puede cambiar de empresa en cualquier momento desde el menú superior
+\end{enumerate}
+
+\begin{warningbox}{Aislamiento de Datos}
+Los datos de cada empresa están completamente aislados. Solo verá información de la empresa actualmente seleccionada. Asegúrese de estar trabajando en el tenant correcto antes de realizar operaciones.
+\end{warningbox}
+
+\section{Recuperación de Contraseña}
+
+Si olvidó su contraseña:
+
+\begin{enumerate}
+    \item En la pantalla de login, click en \textbf{¿Olvidó su contraseña?}
+    \item Ingrese su correo electrónico registrado
+    \item Recibirá un enlace de recuperación por email
+    \item Siga las instrucciones para restablecer su contraseña
+\end{enumerate}
+
+\section{Cerrar Sesión}
+
+Para salir del sistema de forma segura:
+
+\begin{enumerate}
+    \item Click en su nombre de usuario en la esquina superior derecha
+    \item Seleccione \textbf{Cerrar Sesión}
+    \item Será redirigido a la pantalla de login
+\end{enumerate}
+
+\begin{infobox}{Sesión Automática}
+Por seguridad, el sistema cerrará su sesión automáticamente después de 30 minutos de inactividad. Guarde su trabajo con frecuencia.
+\end{infobox}
+
+% ============================================
+% CAPÍTULO 3: DASHBOARD
+% ============================================
+\chapter{Dashboard Principal}
+
+\section{Vista General}
+
+El Dashboard es la pantalla principal que aparece después de iniciar sesión. Proporciona una vista completa del estado de su negocio en tiempo real.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{___documentos/imagenes/dashboard_principal.png}
+\caption{Dashboard principal de SIPUD}
+\end{figure}
+
+\section{Componentes del Dashboard}
+
+\subsection{Menú de Navegación}
+
+El menú lateral izquierdo proporciona acceso a todos los módulos:
+
+\begin{itemize}
+    \item \textbf{Dashboard:} Panel principal (página actual)
+    \item \textbf{Productos:} Catálogo de productos
+    \item \textbf{Ventas:} Módulo de ventas
+    \item \textbf{Bodega:} Gestión de almacén
+    \item \textbf{Reportes:} Informes y exportaciones
+    \item \textbf{Administración:} Panel de administración (solo admin)
+\end{itemize}
+
+\subsection{Tarjetas de Métricas}
+
+El dashboard muestra tarjetas con indicadores clave:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{4cm}p{8cm}}
+\toprule
+\textbf{Métrica} & \textbf{Descripción} \\
+\midrule
+Total Productos & Cantidad de SKUs activos en el catálogo \\
+Ventas del Mes & Número de ventas realizadas en el mes actual \\
+Stock Crítico & Productos con stock por debajo del nivel mínimo \\
+Pedidos Pendientes & Órdenes de compra sin recibir \\
+\bottomrule
+\end{tabular}
+\caption{Métricas principales del dashboard}
+\end{table}
+
+\subsection{Barra Superior}
+
+La barra superior contiene:
+
+\begin{itemize}
+    \item \textbf{Selector de Tenant:} Cambiar entre empresas
+    \item \textbf{Notificaciones:} Alertas del sistema
+    \item \textbf{Perfil de Usuario:} Configuración y cierre de sesión
+\end{itemize}
+
+\section{Navegación Rápida}
+
+Desde el dashboard puede:
+
+\begin{itemize}
+    \item Click en cualquier métrica para ver detalles
+    \item Usar el buscador global (barra superior) para encontrar productos o ventas
+    \item Acceder a los módulos desde el menú lateral
+\end{itemize}
+
+% ============================================
+% CAPÍTULO 4: GESTIÓN DE PRODUCTOS
+% ============================================
+\chapter{Gestión de Productos}
+
+\section{Catálogo de Productos}
+
+El módulo de Productos permite gestionar todo el inventario de su negocio.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{___documentos/imagenes/catalogo_productos.png}
+\caption{Catálogo de productos}
+\end{figure}
+
+\section{Crear un Nuevo Producto}
+
+\subsection{Paso 1: Acceder al Formulario}
+
+\begin{enumerate}
+    \item En el menú lateral, click en \textbf{Productos}
+    \item Click en el botón \textbf{Nuevo Producto}
+    \item Se abrirá el formulario de creación
+\end{enumerate}
+
+\subsection{Paso 2: Completar Información Básica}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{4cm}p{8cm}}
+\toprule
+\textbf{Campo} & \textbf{Descripción} \\
+\midrule
+Nombre & Nombre descriptivo del producto (obligatorio) \\
+SKU & Código único de producto (opcional, autogenerado) \\
+Categoría & Clasificación del producto con emoji visual \\
+Precio Base & Precio de venta unitario \\
+Stock Crítico & Nivel mínimo de alerta de inventario \\
+Descripción & Información adicional del producto \\
+\bottomrule
+\end{tabular}
+\caption{Campos del formulario de producto}
+\end{table}
+
+\subsection{Paso 3: Guardar el Producto}
+
+\begin{enumerate}
+    \item Revise que todos los campos obligatorios estén completos
+    \item Click en \textbf{Guardar Producto}
+    \item El sistema confirmará la creación
+\end{enumerate}
+
+\begin{successbox}{Producto Creado}
+El producto se agregará al catálogo y estará disponible inmediatamente para ventas (cuando tenga stock).
+\end{successbox}
+
+\section{Bundles o Packs}
+
+SIPUD permite crear productos compuestos (bundles) que se arman a partir de otros productos.
+
+\subsection{¿Qué es un Bundle?}
+
+Un bundle es un producto que contiene otros productos. Por ejemplo:
+\begin{itemize}
+    \item \textbf{Caja de Galletas (12 unidades):} Bundle compuesto por 12 galletas individuales
+    \item \textbf{Kit de Aseo:} Bundle con jabón + shampoo + toalla
+\end{itemize}
+
+\subsection{Crear un Bundle}
+
+\begin{enumerate}
+    \item Cree el producto bundle normalmente
+    \item En el listado de productos, click en \textbf{Editar} el bundle
+    \item En la sección \textbf{Componentes del Bundle}, agregue los productos que lo componen
+    \item Para cada componente, especifique la cantidad incluida
+    \item Guarde los cambios
+\end{enumerate}
+
+\begin{warningbox}{Stock de Bundles}
+El stock de un bundle se calcula automáticamente según sus componentes. No puede ingresar stock manualmente para bundles, debe ensamblarlos desde el módulo de Bodega.
+\end{warningbox}
+
+\section{Editar y Eliminar Productos}
+
+\subsection{Editar un Producto}
+
+\begin{enumerate}
+    \item En la tabla de productos, click en el botón \textbf{Editar}
+    \item Modifique los campos necesarios
+    \item Click en \textbf{Guardar Cambios}
+\end{enumerate}
+
+\subsection{Eliminar un Producto}
+
+\begin{enumerate}
+    \item En la tabla de productos, click en el botón \textbf{Eliminar}
+    \item Confirme la eliminación en el diálogo
+\end{enumerate}
+
+\begin{warningbox}{Precaución al Eliminar}
+No puede eliminar productos que tienen:
+\begin{itemize}
+    \item Stock existente en bodega
+    \item Ventas asociadas
+    \item Pedidos pendientes
+\end{itemize}
+El sistema mostrará un error si intenta eliminar un producto con movimientos.
+\end{warningbox}
+
+\section{Consultar Stock}
+
+El stock de cada producto se muestra en la tabla principal. El sistema usa un código de colores:
+
+\begin{itemize}
+    \item \textcolor{sipudgreen}{\textbf{Verde:}} Stock normal (por encima del nivel crítico)
+    \item \textcolor{sipudorange}{\textbf{Naranja:}} Stock bajo (cercano al nivel crítico)
+    \item \textcolor{sipudred}{\textbf{Rojo:}} Stock crítico o agotado
+\end{itemize}
+
+% ============================================
+% CAPÍTULO 5: MÓDULO DE VENTAS
+% ============================================
+\chapter{Módulo de Ventas}
+
+\section{Introducción al Módulo de Ventas}
+
+El módulo de Ventas permite registrar y gestionar todas las transacciones comerciales de su negocio. SIPUD soporta dos tipos de ventas:
+
+\begin{enumerate}
+    \item \textbf{Con Despacho:} Ventas que requieren entrega a domicilio
+    \item \textbf{En Local:} Ventas con entrega inmediata en mostrador
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{___documentos/imagenes/modulo_ventas.png}
+\caption{Módulo de ventas con listado de transacciones}
+\end{figure}
+
+\section{Crear una Venta con Despacho}
+
+\subsection{Paso 1: Iniciar Nueva Venta}
+
+\begin{enumerate}
+    \item En el menú lateral, click en \textbf{Ventas}
+    \item Click en el botón \textbf{Nueva Venta}
+    \item Se abrirá el formulario de creación
+\end{enumerate}
+
+\subsection{Paso 2: Datos del Cliente}
+
+Complete la información del cliente:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{4cm}p{8cm}}
+\toprule
+\textbf{Campo} & \textbf{Descripción} \\
+\midrule
+Nombre Completo & Nombre del cliente (obligatorio) \\
+Tipo de Venta & Seleccione "Con Despacho" \\
+Dirección de Entrega & Dirección completa (obligatorio para despacho) \\
+Teléfono & Número de contacto del cliente \\
+Observaciones & Notas especiales para la entrega \\
+\bottomrule
+\end{tabular}
+\caption{Datos del cliente para venta con despacho}
+\end{table}
+
+\begin{infobox}{Observaciones de Entrega}
+Use el campo de observaciones para indicar instrucciones especiales como:
+\begin{itemize}
+    \item "Timbrar 3 veces"
+    \item "Entregar entre 10:00 y 12:00"
+    \item "Dejar en portería"
+\end{itemize}
+\end{infobox}
+
+\subsection{Paso 3: Agregar Productos al Carrito}
+
+\begin{enumerate}
+    \item En la sección \textbf{Productos}, use el buscador para encontrar productos
+    \item Seleccione el producto deseado
+    \item Ingrese la cantidad
+    \item Click en \textbf{Agregar al Carrito}
+    \item Repita para todos los productos de la venta
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{___documentos/imagenes/buscador_productos_venta.png}
+\caption{Buscador de productos en el formulario de venta}
+\end{figure}
+
+\begin{warningbox}{Validación de Stock}
+El sistema validará automáticamente que haya stock suficiente. Si un producto no tiene stock disponible, mostrará un error y no permitirá agregarlo al carrito.
+\end{warningbox}
+
+\subsection{Paso 4: Configurar Pago Inicial (Opcional)}
+
+Si el cliente realiza un pago al momento de la venta:
+
+\begin{enumerate}
+    \item En la sección \textbf{Pago Inicial}, marque la opción \textbf{Registrar Pago Inicial}
+    \item Ingrese el \textbf{Monto} del pago
+    \item Seleccione la \textbf{Vía de Pago}:
+    \begin{itemize}
+        \item Efectivo
+        \item Transferencia Bancaria
+        \item Tarjeta de Crédito/Débito
+        \item Otro
+    \end{itemize}
+    \item (Opcional) Ingrese una \textbf{Referencia de Pago} (ej: número de transferencia)
+\end{enumerate}
+
+\begin{infobox}{Pago Inicial Opcional}
+No es obligatorio registrar un pago al crear la venta. Puede dejar el pago pendiente y registrar abonos posteriormente desde el modal de actualización.
+\end{infobox}
+
+\subsection{Paso 5: Confirmar la Venta}
+
+\begin{enumerate}
+    \item Revise el resumen de la venta (productos, cantidades, total)
+    \item Click en \textbf{Confirmar y Crear Venta}
+    \item El sistema procesará la venta
+\end{enumerate}
+
+\begin{successbox}{Venta Creada con Éxito}
+La venta se registrará con estado "Pendiente" y estará lista para gestión de entrega. El stock se descontará automáticamente usando el sistema FIFO.
+\end{successbox}
+
+\section{Crear una Venta en Local}
+
+Las ventas en local son transacciones con entrega inmediata en el punto de venta.
+
+\subsection{Diferencias con Venta con Despacho}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{5cm}p{5cm}}
+\toprule
+\textbf{Con Despacho} & \textbf{En Local} \\
+\midrule
+Requiere dirección de entrega & No requiere dirección \\
+Estados de entrega progresivos & Automáticamente "Entregado" \\
+Fecha de entrega futura & Fecha de entrega = fecha de venta \\
+Seguimiento de estado & Sin seguimiento (ya entregado) \\
+\bottomrule
+\end{tabular}
+\caption{Comparación entre tipos de venta}
+\end{table}
+
+\subsection{Proceso de Venta en Local}
+
+\begin{enumerate}
+    \item Click en \textbf{Nueva Venta}
+    \item Complete el nombre del cliente
+    \item Seleccione \textbf{Tipo de Venta: En Local}
+    \item El campo de dirección se ocultará automáticamente
+    \item Agregue productos al carrito
+    \item (Opcional) Registre el pago
+    \item Click en \textbf{Confirmar y Crear Venta}
+\end{enumerate}
+
+\begin{infobox}{Entrega Automática}
+Las ventas en local se crean automáticamente con estado "Entregado" y la fecha de entrega registrada al momento de la creación.
+\end{infobox}
+
+\section{Estados de Entrega}
+
+SIPUD maneja 6 estados diferentes para el seguimiento de entregas:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{4cm}p{8cm}}
+\toprule
+\textbf{Estado} & \textbf{Descripción} \\
+\midrule
+Pendiente & Venta registrada, sin preparar \\
+En Preparación & Productos siendo empacados \\
+En Tránsito & Pedido en camino al cliente \\
+Entregado & Entrega completada exitosamente \\
+Con Observaciones & Entregado con incidencias (ej: daño parcial) \\
+Cancelado & Venta anulada \\
+\bottomrule
+\end{tabular}
+\caption{Estados de entrega en SIPUD}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=2cm]
+\tikzstyle{estado} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm, text centered, draw=black, fill=sipudlight]
+\tikzstyle{flecha} = [thick,->,>=stealth]
+
+\node (pendiente) [estado] {Pendiente};
+\node (preparacion) [estado, right of=pendiente, xshift=3cm] {En Preparación};
+\node (transito) [estado, right of=preparacion, xshift=3cm] {En Tránsito};
+\node (entregado) [estado, below of=transito, yshift=-1cm] {Entregado};
+\node (observaciones) [estado, below of=pendiente, yshift=-1cm] {Con Observaciones};
+\node (cancelado) [estado, below of=preparacion, yshift=-1cm] {Cancelado};
+
+\draw [flecha] (pendiente) -- (preparacion);
+\draw [flecha] (preparacion) -- (transito);
+\draw [flecha] (transito) -- (entregado);
+\draw [flecha] (pendiente) -- (observaciones);
+\draw [flecha] (pendiente) -- (cancelado);
+\end{tikzpicture}
+\caption{Flujo de estados de entrega}
+\end{figure}
+
+\section{Sistema de Pagos Múltiples}
+
+SIPUD permite gestionar pagos de forma flexible con múltiples abonos.
+
+\subsection{Conceptos Clave}
+
+\begin{itemize}
+    \item \textbf{Total de la Venta:} Suma de todos los productos
+    \item \textbf{Total Pagado:} Suma de todos los abonos registrados
+    \item \textbf{Saldo Pendiente:} Total - Total Pagado
+    \item \textbf{Estado de Pago:} Calculado automáticamente:
+    \begin{itemize}
+        \item \textcolor{sipudred}{Pendiente}: \$0 pagados
+        \item \textcolor{sipudorange}{Parcial}: Entre \$1 y total-1
+        \item \textcolor{sipudgreen}{Pagado}: Total pagado = Total venta
+    \end{itemize}
+\end{itemize}
+
+\subsection{Registrar Abonos Adicionales}
+
+\begin{enumerate}
+    \item En la tabla de ventas, click en \textbf{Actualizar} en la venta deseada
+    \item En el modal, seleccione la pestaña \textbf{Pagos}
+    \item Verá el resumen financiero de la venta
+    \item En la sección \textbf{Registrar Nuevo Pago}:
+    \begin{itemize}
+        \item Ingrese el \textbf{Monto} del abono
+        \item Seleccione la \textbf{Vía de Pago}
+        \item (Opcional) Ingrese una \textbf{Referencia}
+    \end{itemize}
+    \item Click en \textbf{Registrar Pago}
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{___documentos/imagenes/modal_pagos.png}
+\caption{Modal de gestión de pagos}
+\end{figure}
+
+\subsection{Historial de Pagos}
+
+El sistema mantiene un registro completo de todos los abonos:
+
+\begin{itemize}
+    \item Fecha y hora del pago
+    \item Monto abonado
+    \item Vía de pago utilizada
+    \item Referencia (si aplica)
+    \item Usuario que registró el pago
+\end{itemize}
+
+\begin{infobox}{Trazabilidad Completa}
+Cada pago queda registrado en el sistema con toda la información para auditoría y seguimiento. Los pagos no pueden ser eliminados, solo pueden agregarse nuevos abonos.
+\end{infobox}
+
+\section{Actualizar Estado de una Venta}
+
+Para cambiar el estado de entrega de una venta:
+
+\begin{enumerate}
+    \item En la tabla de ventas, localice la venta
+    \item Click en el botón \textbf{Actualizar}
+    \item Se abrirá un modal con dos pestañas:
+    \begin{itemize}
+        \item \textbf{Estado de Entrega}
+        \item \textbf{Pagos}
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Pestaña Estado de Entrega}
+
+\begin{enumerate}
+    \item Seleccione el nuevo \textbf{Estado de Entrega} del menú desplegable
+    \item Si selecciona "Con Observaciones", debe ingresar las observaciones
+    \item (Opcional) Agregue o modifique las \textbf{Observaciones del Cliente}
+    \item Click en \textbf{Guardar Cambios}
+\end{enumerate}
+
+\begin{warningbox}{Ventas en Local}
+Las ventas creadas como "En Local" no pueden cambiar su estado de entrega. Siempre permanecerán como "Entregado".
+\end{warningbox}
+
+\subsection{Fecha de Entrega Automática}
+
+Cuando marca una venta como "Entregado" o "Con Observaciones", el sistema registra automáticamente la fecha y hora de entrega.
+
+\section{Exportar Ventas}
+
+Para exportar el listado de ventas a Excel:
+
+\begin{enumerate}
+    \item En el módulo de Ventas, click en \textbf{Exportar a Excel}
+    \item El sistema generará un archivo con todas las ventas
+    \item El archivo se descargará automáticamente
+\end{enumerate}
+
+El archivo Excel incluye:
+\begin{itemize}
+    \item ID de venta
+    \item Fecha de creación
+    \item Cliente
+    \item Tipo de venta
+    \item Dirección (si aplica)
+    \item Total de la venta
+    \item Estado de entrega
+    \item Estado de pago
+    \item Fecha de entrega
+\end{itemize}
+
+% ============================================
+% CAPÍTULO 6: MÓDULO DE BODEGA
+% ============================================
+\chapter{Módulo de Bodega}
+
+\section{Introducción al Módulo de Bodega}
+
+El módulo de Bodega (Almacén) gestiona todo el flujo de entrada y control de inventario. Está dividido en cuatro submódulos especializados:
+
+\begin{enumerate}
+    \item \textbf{Pedidos a Proveedores}
+    \item \textbf{Recepción de Mercancía}
+    \item \textbf{Registro de Mermas}
+    \item \textbf{Gestión de Vencimientos}
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{___documentos/imagenes/dashboard_bodega.png}
+\caption{Dashboard del módulo de bodega}
+\end{figure}
+
+\section{Pedidos a Proveedores}
+
+Este submódulo permite crear y gestionar órdenes de compra a sus proveedores.
+
+\subsection{Crear un Pedido}
+
+\begin{enumerate}
+    \item En el menú lateral, click en \textbf{Bodega}
+    \item Seleccione \textbf{Pedidos a Proveedores}
+    \item Click en \textbf{Nuevo Pedido}
+    \item Complete el formulario:
+    \begin{itemize}
+        \item \textbf{Proveedor:} Seleccione de la lista o cree uno nuevo
+        \item \textbf{Número de Factura:} Número de documento del proveedor
+        \item \textbf{Monto Total:} Valor total de la compra
+        \item \textbf{Observaciones:} Notas adicionales (opcional)
+    \end{itemize}
+    \item Click en \textbf{Crear Pedido}
+\end{enumerate}
+
+\begin{successbox}{Pedido Creado}
+El pedido quedará registrado con estado "Pendiente" y estará listo para recepción de mercancía.
+\end{successbox}
+
+\subsection{Estados de Pedidos}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{3cm}p{9cm}}
+\toprule
+\textbf{Estado} & \textbf{Descripción} \\
+\midrule
+Pendiente & Pedido creado, esperando recepción de mercancía \\
+Recibido & Mercancía recepcionada, stock actualizado \\
+Pagado & Pedido pagado al proveedor \\
+Cancelado & Pedido anulado \\
+\bottomrule
+\end{tabular}
+\caption{Estados de pedidos a proveedores}
+\end{table}
+
+\subsection{Gestionar Proveedores}
+
+Para agregar un nuevo proveedor:
+
+\begin{enumerate}
+    \item En el formulario de pedido, click en \textbf{Nuevo Proveedor}
+    \item Complete:
+    \begin{itemize}
+        \item \textbf{Nombre:} Razón social del proveedor
+        \item \textbf{RUT:} Identificación tributaria (opcional)
+        \item \textbf{Información de Contacto:} Teléfono, email, etc.
+    \end{itemize}
+    \item Click en \textbf{Guardar Proveedor}
+\end{enumerate}
+
+\section{Recepción de Mercancía}
+
+Este es el proceso más importante del módulo de bodega, donde se registra la entrada física de productos y se actualiza el inventario.
+
+\subsection{Proceso de Recepción}
+
+\begin{enumerate}
+    \item En \textbf{Bodega}, seleccione \textbf{Recepción de Mercancía}
+    \item Verá el listado de pedidos pendientes
+    \item Click en \textbf{Recepcionar} en el pedido correspondiente
+    \item Se abrirá el formulario de recepción
+\end{enumerate}
+
+\subsection{Registrar Productos Recibidos}
+
+Para cada producto recibido:
+
+\begin{enumerate}
+    \item Click en \textbf{Agregar Producto}
+    \item Seleccione el \textbf{Producto} del catálogo
+    \item Ingrese la \textbf{Cantidad} recibida
+    \item Complete la información del lote:
+    \begin{itemize}
+        \item \textbf{Código de Lote:} Identificador del lote (si no lo ingresa, se autogenera)
+        \item \textbf{Fecha de Vencimiento:} Fecha de caducidad del producto
+    \end{itemize}
+    \item Click en \textbf{Agregar}
+    \item Repita para todos los productos del pedido
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{___documentos/imagenes/formulario_recepcion.png}
+\caption{Formulario de recepción de mercancía}
+\end{figure}
+
+\begin{infobox}{Sistema de Lotes}
+SIPUD gestiona el inventario por lotes individuales. Cada entrada de mercancía crea un nuevo lote con su propia fecha de vencimiento y cantidad. Esto permite trazabilidad completa y control FIFO automático.
+\end{infobox}
+
+\subsection{Confirmar la Recepción}
+
+Una vez agregados todos los productos:
+
+\begin{enumerate}
+    \item Revise el resumen de productos recepcionados
+    \item Click en \textbf{Confirmar Recepción}
+    \item El sistema:
+    \begin{itemize}
+        \item Cambiará el estado del pedido a "Recibido"
+        \item Creará los lotes en la base de datos
+        \item Actualizará el stock de los productos
+        \item Registrará la fecha de recepción
+    \end{itemize}
+\end{enumerate}
+
+\begin{successbox}{Recepción Completada}
+El stock estará inmediatamente disponible para ventas. Los lotes se usarán siguiendo el orden FIFO (primero en entrar, primero en salir).
+\end{successbox}
+
+\subsection{Validaciones}
+
+El sistema valida:
+
+\begin{itemize}
+    \item La fecha de vencimiento no puede estar en el pasado
+    \item Las cantidades deben ser positivas
+    \item Los productos deben existir en el catálogo
+\end{itemize}
+
+\section{Registro de Mermas}
+
+Las mermas son pérdidas de inventario por diferentes causas. SIPUD permite registrarlas y descuenta automáticamente el stock.
+
+\subsection{Tipos de Mermas}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{4cm}p{8cm}}
+\toprule
+\textbf{Razón} & \textbf{Uso} \\
+\midrule
+Vencido & Producto pasado de fecha de caducidad \\
+Dañado & Producto con daño físico \\
+Perdido & Producto extraviado \\
+Robo & Producto sustraído \\
+Otro & Otras razones no clasificadas \\
+\bottomrule
+\end{tabular}
+\caption{Razones de merma disponibles}
+\end{table}
+
+\subsection{Registrar una Merma}
+
+\begin{enumerate}
+    \item En \textbf{Bodega}, seleccione \textbf{Registro de Mermas}
+    \item Click en \textbf{Nueva Merma}
+    \item Complete el formulario:
+    \begin{itemize}
+        \item \textbf{Producto:} Seleccione el producto afectado
+        \item \textbf{Cantidad:} Unidades perdidas
+        \item \textbf{Razón:} Motivo de la merma
+        \item \textbf{Observaciones:} Detalles adicionales
+    \end{itemize}
+    \item Click en \textbf{Registrar Merma}
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{___documentos/imagenes/formulario_merma.png}
+\caption{Formulario de registro de mermas}
+\end{figure}
+
+\subsection{Descuento Automático FIFO}
+
+Cuando registra una merma, el sistema:
+
+\begin{enumerate}
+    \item Identifica los lotes del producto ordenados por fecha de entrada (más antiguos primero)
+    \item Descuenta la cantidad de merma comenzando por el lote más antiguo
+    \item Si un lote no tiene suficiente cantidad, continúa con el siguiente
+    \item Actualiza el stock disponible del producto
+    \item Registra la operación en el log de actividades
+\end{enumerate}
+
+\begin{infobox}{FIFO - Primera Entrada, Primera Salida}
+El sistema FIFO (First In, First Out) garantiza que siempre se consuman primero los productos más antiguos, reduciendo el riesgo de vencimientos.
+\end{infobox}
+
+\begin{warningbox}{Stock Insuficiente}
+Si intenta registrar una merma mayor al stock disponible, el sistema mostrará un error y no permitirá la operación.
+\end{warningbox}
+
+\section{Gestión de Vencimientos}
+
+Este submódulo permite monitorear y actualizar las fechas de vencimiento de los lotes en inventario.
+
+\subsection{Vista de Productos con Vencimiento}
+
+\begin{enumerate}
+    \item En \textbf{Bodega}, seleccione \textbf{Gestión de Vencimientos}
+    \item Verá una tabla con todos los productos que tienen fecha de vencimiento
+    \item La tabla incluye:
+    \begin{itemize}
+        \item Producto
+        \item Código de lote
+        \item Cantidad disponible
+        \item Fecha de vencimiento
+        \item Estado (según proximidad al vencimiento)
+    \end{itemize}
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{___documentos/imagenes/gestion_vencimientos.png}
+\caption{Gestión de vencimientos - vista general}
+\end{figure}
+
+\subsection{Códigos de Color}
+
+El sistema usa alertas visuales para identificar lotes según su vencimiento:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{cp{10cm}}
+\toprule
+\textbf{Color} & \textbf{Significado} \\
+\midrule
+\textcolor{sipudred}{\textbf{Rojo}} & Vence en 7 días o menos (urgente) \\
+\textcolor{sipudorange}{\textbf{Naranja}} & Vence entre 8 y 30 días (precaución) \\
+\textcolor{sipudgreen}{\textbf{Verde}} & Vence en más de 30 días (normal) \\
+\bottomrule
+\end{tabular}
+\caption{Códigos de color para vencimientos}
+\end{table}
+
+\subsection{Actualizar Fecha de Vencimiento}
+
+Si necesita corregir o actualizar una fecha de vencimiento:
+
+\begin{enumerate}
+    \item Localice el lote en la tabla
+    \item Click en el campo de \textbf{Fecha de Vencimiento}
+    \item Seleccione la nueva fecha
+    \item Click en \textbf{Actualizar}
+\end{enumerate}
+
+\begin{warningbox}{Validación de Fechas}
+El sistema no permite establecer fechas de vencimiento en el pasado. Si intenta hacerlo, mostrará un error.
+\end{warningbox}
+
+\subsection{Acciones Recomendadas}
+
+Para lotes próximos a vencer (rojo/naranja):
+
+\begin{itemize}
+    \item \textbf{Promocionar:} Crear ofertas para acelerar la venta
+    \item \textbf{Donar:} Contactar organizaciones benéficas
+    \item \textbf{Merma:} Si ya venció, registrar como merma por vencimiento
+\end{itemize}
+
+\section{Ensamblado de Bundles}
+
+Si utiliza productos tipo bundle, debe ensamblarlos en bodega.
+
+\subsection{Proceso de Ensamblado}
+
+\begin{enumerate}
+    \item En \textbf{Bodega}, acceda a \textbf{Ensamblado de Bundles}
+    \item Seleccione el \textbf{Bundle} que desea armar
+    \item Ingrese la \textbf{Cantidad} de bundles a ensamblar
+    \item El sistema validará que haya stock suficiente de todos los componentes
+    \item Click en \textbf{Ensamblar}
+\end{enumerate}
+
+\subsection{Proceso Automático}
+
+Cuando ensambla bundles, el sistema:
+
+\begin{enumerate}
+    \item Descuenta el stock de cada componente (usando FIFO)
+    \item Crea un pedido interno con proveedor "Interno: Armado"
+    \item Genera un lote nuevo para el bundle ensamblado
+    \item Actualiza el stock disponible del bundle
+\end{enumerate}
+
+\begin{infobox}{Trazabilidad de Ensamblado}
+Cada ensamblado queda registrado como un pedido interno, manteniendo la trazabilidad completa de qué lotes de componentes se usaron para crear cada bundle.
+\end{infobox}
+
+% ============================================
+% CAPÍTULO 7: PANEL DE ADMINISTRACIÓN
+% ============================================
+\chapter{Panel de Administración}
+
+\section{Introducción}
+
+El Panel de Administración es accesible solo para usuarios con rol de \textbf{Administrador}. Permite gestionar usuarios, roles, permisos y auditar actividades del sistema.
+
+\begin{warningbox}{Acceso Restringido}
+Solo los usuarios con rol "admin" pueden acceder a este módulo. Si no ve la opción en el menú, contacte a su administrador del sistema.
+\end{warningbox}
+
+\section{Gestión de Usuarios}
+
+\subsection{Listar Usuarios}
+
+\begin{enumerate}
+    \item En el menú lateral, click en \textbf{Administración}
+    \item Seleccione \textbf{Usuarios}
+    \item Verá la tabla con todos los usuarios del sistema
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{___documentos/imagenes/admin_usuarios.png}
+\caption{Panel de administración de usuarios}
+\end{figure}
+
+La tabla muestra:
+\begin{itemize}
+    \item Nombre de usuario
+    \item Nombre completo
+    \item Email
+    \item Rol asignado
+    \item Estado (activo/inactivo)
+    \item Acciones disponibles
+\end{itemize}
+
+\subsection{Crear un Nuevo Usuario}
+
+\begin{enumerate}
+    \item Click en \textbf{Nuevo Usuario}
+    \item Complete el formulario:
+    \begin{itemize}
+        \item \textbf{Nombre de Usuario:} Identificador único para login
+        \item \textbf{Email:} Correo electrónico
+        \item \textbf{Nombre Completo:} Nombre real del usuario
+        \item \textbf{Contraseña:} Contraseña inicial (debe cambiarla después)
+        \item \textbf{Rol:} Seleccione el rol apropiado
+    \end{itemize}
+    \item Click en \textbf{Crear Usuario}
+\end{enumerate}
+
+\subsection{Roles Disponibles}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{3cm}p{9cm}}
+\toprule
+\textbf{Rol} & \textbf{Permisos} \\
+\midrule
+Admin & Acceso completo a todos los módulos incluyendo administración \\
+Manager & Gestión de productos, ventas, bodega y reportes. Sin acceso a eliminar usuarios ni ver logs de actividad \\
+Warehouse & Solo módulo de bodega (pedidos, recepción, mermas). Acceso limitado a productos y ventas (solo lectura) \\
+Sales & Solo módulo de ventas y consulta de productos. Sin acceso a bodega ni administración \\
+\bottomrule
+\end{tabular}
+\caption{Roles y permisos del sistema}
+\end{table}
+
+\subsection{Editar un Usuario}
+
+\begin{enumerate}
+    \item En la tabla de usuarios, click en \textbf{Editar}
+    \item Modifique los campos necesarios
+    \item Puede cambiar:
+    \begin{itemize}
+        \item Nombre completo
+        \item Email
+        \item Rol
+        \item Contraseña (si marca la opción)
+    \end{itemize}
+    \item Click en \textbf{Guardar Cambios}
+\end{enumerate}
+
+\begin{warningbox}{Cambio de Contraseña}
+Si cambia la contraseña de un usuario, infórmele inmediatamente. El sistema no envía notificaciones automáticas.
+\end{warningbox}
+
+\subsection{Desactivar un Usuario}
+
+En lugar de eliminar usuarios (para mantener trazabilidad), es mejor desactivarlos:
+
+\begin{enumerate}
+    \item Click en \textbf{Editar} el usuario
+    \item Marque la opción \textbf{Usuario Inactivo}
+    \item Guarde los cambios
+\end{enumerate}
+
+Un usuario inactivo:
+\begin{itemize}
+    \item No puede iniciar sesión
+    \item Sus registros históricos se mantienen
+    \item Puede reactivarse en cualquier momento
+\end{itemize}
+
+\section{Registro de Actividades}
+
+El módulo de Activity Log (Registro de Actividades) mantiene un historial completo de todas las operaciones realizadas en el sistema.
+
+\subsection{Acceder al Log de Actividades}
+
+\begin{enumerate}
+    \item En \textbf{Administración}, seleccione \textbf{Registro de Actividades}
+    \item Verá la tabla con todas las actividades registradas
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{___documentos/imagenes/activity_log.png}
+\caption{Registro de actividades del sistema}
+\end{figure}
+
+\subsection{Información Registrada}
+
+Cada entrada del log incluye:
+
+\begin{itemize}
+    \item \textbf{Fecha y Hora:} Timestamp exacto de la operación
+    \item \textbf{Usuario:} Quién realizó la acción
+    \item \textbf{Acción:} Tipo de operación (create, update, delete, login, logout)
+    \item \textbf{Módulo:} Área del sistema (products, sales, warehouse, users)
+    \item \textbf{Descripción:} Detalle de la operación
+    \item \textbf{IP Address:} Dirección IP del usuario
+    \item \textbf{User Agent:} Navegador utilizado
+\end{itemize}
+
+\subsection{Filtrar Actividades}
+
+Use los filtros disponibles para encontrar actividades específicas:
+
+\begin{itemize}
+    \item \textbf{Por Usuario:} Ver solo acciones de un usuario
+    \item \textbf{Por Módulo:} Filtrar por área del sistema
+    \item \textbf{Por Acción:} Buscar solo creaciones, ediciones, etc.
+    \item \textbf{Por Fecha:} Rango de fechas personalizado
+\end{itemize}
+
+\subsection{Casos de Uso del Log}
+
+El registro de actividades es útil para:
+
+\begin{itemize}
+    \item \textbf{Auditoría:} Rastrear quién hizo qué y cuándo
+    \item \textbf{Seguridad:} Detectar accesos no autorizados
+    \item \textbf{Resolución de Problemas:} Investigar errores o inconsistencias
+    \item \textbf{Cumplimiento:} Documentación para requisitos legales
+\end{itemize}
+
+\begin{infobox}{Retención de Logs}
+Los registros de actividad se mantienen indefinidamente. Para sistemas con alto volumen de transacciones, consulte con su equipo de TI sobre políticas de archivado.
+\end{infobox}
+
+% ============================================
+% CAPÍTULO 8: REPORTES Y EXPORTACIONES
+% ============================================
+\chapter{Reportes y Exportaciones}
+
+\section{Módulo de Reportes}
+
+El módulo de Reportes permite exportar datos del sistema a formatos compatibles con herramientas de análisis como Excel.
+
+\subsection{Acceder a Reportes}
+
+\begin{enumerate}
+    \item En el menú lateral, click en \textbf{Reportes}
+    \item Seleccione el tipo de reporte deseado
+\end{enumerate}
+
+\section{Exportación de Ventas}
+
+\subsection{Exportar a Excel}
+
+\begin{enumerate}
+    \item En \textbf{Reportes}, seleccione \textbf{Ventas}
+    \item (Opcional) Configure filtros:
+    \begin{itemize}
+        \item Rango de fechas
+        \item Estado de entrega
+        \item Estado de pago
+        \item Cliente específico
+    \end{itemize}
+    \item Click en \textbf{Exportar a Excel}
+    \item El archivo se descargará automáticamente
+\end{enumerate}
+
+\subsection{Contenido del Archivo}
+
+El Excel de ventas incluye:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{p{4cm}p{8cm}}
+\toprule
+\textbf{Columna} & \textbf{Descripción} \\
+\midrule
+ID Venta & Número único de la venta \\
+Fecha & Fecha de creación \\
+Cliente & Nombre del cliente \\
+Tipo & Con Despacho / En Local \\
+Dirección & Dirección de entrega (si aplica) \\
+Total & Monto total de la venta \\
+Estado Entrega & Pendiente/En Tránsito/Entregado/etc \\
+Estado Pago & Pendiente/Parcial/Pagado \\
+Total Pagado & Suma de abonos \\
+Saldo Pendiente & Total - Total Pagado \\
+Fecha Entrega & Fecha de entrega real \\
+Observaciones & Notas del cliente \\
+\bottomrule
+\end{tabular}
+\caption{Columnas del reporte de ventas}
+\end{table}
+
+\section{Exportación de Inventario}
+
+\subsection{Reporte de Stock Actual}
+
+\begin{enumerate}
+    \item En \textbf{Reportes}, seleccione \textbf{Inventario}
+    \item Click en \textbf{Stock Actual}
+    \item El sistema generará un Excel con:
+    \begin{itemize}
+        \item Todos los productos
+        \item Stock disponible
+        \item Stock crítico (umbral)
+        \item Estado (Normal/Bajo/Crítico)
+        \item Valor total del inventario
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Reporte de Lotes}
+
+Para un análisis detallado por lotes:
+
+\begin{enumerate}
+    \item Seleccione \textbf{Reporte de Lotes}
+    \item El Excel incluirá:
+    \begin{itemize}
+        \item Producto
+        \item Código de lote
+        \item Cantidad disponible
+        \item Fecha de vencimiento
+        \item Días hasta vencimiento
+        \item Proveedor de origen
+    \end{itemize}
+\end{enumerate}
+
+\section{Análisis de Datos}
+
+Los archivos exportados están optimizados para análisis en Excel:
+
+\begin{itemize}
+    \item Encabezados claros en la primera fila
+    \item Formato de moneda para campos de dinero
+    \item Formato de fecha consistente (DD/MM/YYYY)
+    \item Sin celdas combinadas (compatibilidad con tablas dinámicas)
+\end{itemize}
+
+\begin{infobox}{Tablas Dinámicas}
+Los reportes de SIPUD están diseñados para usarse con tablas dinámicas de Excel. Esto le permite crear análisis personalizados sin modificar el sistema.
+\end{infobox}
+
+% ============================================
+% CAPÍTULO 9: FAQ Y TROUBLESHOOTING
+% ============================================
+\chapter{Preguntas Frecuentes y Solución de Problemas}
+
+\section{Preguntas Frecuentes}
+
+\subsection{Acceso y Login}
+
+\textbf{P: Olvidé mi contraseña, ¿qué hago?}
+
+R: En la pantalla de login, click en "¿Olvidó su contraseña?" e ingrese su email. Recibirá un enlace de recuperación. Si no recibe el email, verifique la carpeta de spam o contacte a su administrador.
+
+\textbf{P: ¿Puedo usar SIPUD desde mi teléfono móvil?}
+
+R: Sí, SIPUD es completamente responsive. Puede acceder desde cualquier dispositivo con navegador web moderno.
+
+\textbf{P: ¿Cómo cambio mi contraseña?}
+
+R: Click en su nombre de usuario (esquina superior derecha) → Configuración → Cambiar Contraseña.
+
+\subsection{Productos e Inventario}
+
+\textbf{P: ¿Por qué no puedo eliminar un producto?}
+
+R: No puede eliminar productos que tengan:
+\begin{itemize}
+    \item Stock existente en bodega
+    \item Ventas asociadas
+    \item Pedidos pendientes
+\end{itemize}
+
+Primero debe resolver estas dependencias. Si ya no necesita el producto, considere marcarlo como inactivo en lugar de eliminarlo.
+
+\textbf{P: ¿Cómo funciona el stock de bundles?}
+
+R: Los bundles no tienen stock propio. Su stock se calcula automáticamente según los componentes disponibles. Para aumentar el stock de un bundle, debe ensamblar unidades desde el módulo de Bodega.
+
+\textbf{P: ¿Qué es el stock crítico?}
+
+R: Es el nivel mínimo de inventario que considera aceptable. Cuando el stock cae por debajo de este valor, el sistema muestra alertas visuales (color naranja/rojo) para que pueda hacer pedidos a tiempo.
+
+\subsection{Ventas}
+
+\textbf{P: ¿Puedo modificar una venta después de crearla?}
+
+R: Puede actualizar el estado de entrega, agregar pagos y modificar observaciones. No puede cambiar los productos ni las cantidades una vez creada la venta. Si necesita cancelarla, cambie el estado a "Cancelado".
+
+\textbf{P: ¿Qué pasa si cancelo una venta?}
+
+R: El stock NO se devuelve automáticamente. La venta queda marcada como cancelada para registro histórico. Si necesita devolver el stock, debe hacer un ajuste manual registrando una recepción de mercancía.
+
+\textbf{P: ¿Puedo registrar abonos parciales?}
+
+R: Sí, SIPUD soporta pagos múltiples. Puede registrar todos los abonos que necesite hasta completar el total de la venta.
+
+\textbf{P: ¿Cuál es la diferencia entre "Entregado" y "Con Observaciones"?}
+
+R: Ambos indican que se entregó el pedido. "Con Observaciones" se usa cuando hubo alguna incidencia durante la entrega (ej: producto con daño menor, entrega parcial, etc.). Debe especificar las observaciones en el campo correspondiente.
+
+\subsection{Bodega}
+
+\textbf{P: ¿Qué es FIFO y cómo funciona?}
+
+R: FIFO (First In, First Out) significa "Primero en Entrar, Primero en Salir". El sistema descuenta automáticamente el stock comenzando por los lotes más antiguos. Esto minimiza el riesgo de vencimientos.
+
+\textbf{P: ¿Puedo ingresar stock sin crear un pedido a proveedor?}
+
+R: No directamente. El flujo correcto es:
+\begin{enumerate}
+    \item Crear pedido a proveedor
+    \item Recepcionar mercancía del pedido
+\end{enumerate}
+
+Si necesita ingresar stock por otros motivos (producción interna, donaciones, etc.), cree un pedido con proveedor "Interno" o "Donación".
+
+\textbf{P: ¿Cómo corrijo un error en la recepción de mercancía?}
+
+R: Si ingresó cantidades o fechas incorrectas:
+\begin{itemize}
+    \item Para fechas de vencimiento: Use "Gestión de Vencimientos" para actualizar
+    \item Para cantidades: Registre una merma con razón "Ajuste" por la diferencia
+\end{itemize}
+
+\textbf{P: ¿Puedo tener múltiples lotes del mismo producto con diferentes vencimientos?}
+
+R: Sí, es lo normal. Cada recepción crea un lote separado. El sistema gestiona automáticamente qué lote usar según FIFO.
+
+\section{Solución de Problemas}
+
+\subsection{Problemas de Acceso}
+
+\textbf{Problema: "Usuario o contraseña incorrectos"}
+
+Soluciones:
+\begin{enumerate}
+    \item Verifique que el Caps Lock esté desactivado
+    \item Asegúrese de escribir correctamente (las contraseñas distinguen mayúsculas/minúsculas)
+    \item Intente recuperar la contraseña usando el enlace correspondiente
+    \item Contacte al administrador para verificar que su cuenta esté activa
+\end{enumerate}
+
+\textbf{Problema: "Sesión expirada"}
+
+Soluciones:
+\begin{itemize}
+    \item Es normal después de 30 minutos de inactividad
+    \item Simplemente vuelva a iniciar sesión
+    \item Si ocurre constantemente, verifique que las cookies estén habilitadas en su navegador
+\end{itemize}
+
+\subsection{Problemas con Productos}
+
+\textbf{Problema: "Stock insuficiente" al crear una venta}
+
+Soluciones:
+\begin{enumerate}
+    \item Verifique el stock real del producto en el módulo de Productos
+    \item Si es un bundle, verifique que haya suficientes componentes
+    \item Reciba mercancía pendiente o cree un nuevo pedido
+\end{enumerate}
+
+\textbf{Problema: El stock del bundle no se actualiza}
+
+Soluciones:
+\begin{itemize}
+    \item El stock de bundles es calculado, no manual
+    \item Verifique que todos los componentes tengan stock
+    \item Si cambió la composición del bundle, recargue la página (F5)
+\end{itemize}
+
+\subsection{Problemas con Ventas}
+
+\textbf{Problema: No puedo cambiar el estado de entrega}
+
+Soluciones:
+\begin{itemize}
+    \item Si es una venta "En Local", no puede cambiar el estado (siempre está entregada)
+    \item Verifique que tenga permisos suficientes (rol warehouse o superior)
+    \item Si la venta está cancelada, no puede cambiar el estado
+\end{itemize}
+
+\textbf{Problema: El total pagado es mayor al total de la venta}
+
+Prevención:
+\begin{itemize}
+    \item El sistema valida automáticamente y no permite registrar pagos que excedan el total
+    \item Si ve este problema, contacte al administrador (posible inconsistencia de datos)
+\end{itemize}
+
+\subsection{Problemas con Exportaciones}
+
+\textbf{Problema: El archivo Excel no se descarga}
+
+Soluciones:
+\begin{enumerate}
+    \item Verifique que su navegador permita descargas desde el sitio
+    \item Revise la carpeta de descargas de su computador
+    \item Intente con otro navegador
+    \item Desactive temporalmente bloqueadores de pop-ups
+\end{enumerate}
+
+\textbf{Problema: El Excel tiene caracteres extraños}
+
+Soluciones:
+\begin{itemize}
+    \item Abra el archivo con Excel (no con OpenOffice/LibreOffice)
+    \item El archivo está codificado en UTF-8
+    \item Si usa Excel antiguo, intente importar como "Datos desde archivo" con codificación UTF-8
+\end{itemize}
+
+\subsection{Problemas de Rendimiento}
+
+\textbf{Problema: El sistema está lento}
+
+Soluciones:
+\begin{enumerate}
+    \item Verifique su conexión a internet
+    \item Cierre pestañas innecesarias del navegador
+    \item Limpie la caché del navegador (Ctrl+Shift+Del)
+    \item Si el problema persiste, contacte al administrador (puede ser problema del servidor)
+\end{enumerate}
+
+\textbf{Problema: Las tablas tardan en cargar}
+
+Soluciones:
+\begin{itemize}
+    \item Si tiene muchos registros (miles), use los filtros para reducir el conjunto de datos
+    \item El sistema usa paginación, navegue por páginas en lugar de mostrar todo
+    \item Considere exportar a Excel para análisis de grandes volúmenes
+\end{itemize}
+
+\section{Mensajes de Error Comunes}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{6cm}p{6cm}}
+\toprule
+\textbf{Mensaje de Error} & \textbf{Solución} \\
+\midrule
+"Stock insuficiente para [producto]" & Recepcione más mercancía o reduzca la cantidad en la venta \\
+"El pedido ya fue recepcionado" & No puede recepcionar un pedido dos veces. Cree un nuevo pedido si llegó más mercancía \\
+"Fecha de vencimiento inválida" & La fecha no puede estar en el pasado \\
+"No tiene permisos para esta acción" & Contacte al administrador para revisar sus permisos \\
+"Producto no encontrado" & El producto puede haber sido eliminado. Actualice la página \\
+"Sesión expirada" & Vuelva a iniciar sesión \\
+\bottomrule
+\end{tabular}
+\caption{Mensajes de error y soluciones}
+\end{table}
+
+\section{Contacto y Soporte}
+
+Si ninguna de las soluciones anteriores resuelve su problema:
+
+\begin{infobox}{Obtener Ayuda}
+\begin{enumerate}
+    \item \textbf{Administrador del Sistema:} Contacte primero a su administrador interno
+    \item \textbf{Soporte Técnico:} Email: \texttt{soporte@sipud.com}
+    \item \textbf{Documentación:} Revise este manual y los tutoriales en línea
+\end{enumerate}
+
+Al contactar soporte, incluya:
+\begin{itemize}
+    \item Descripción del problema
+    \item Pasos para reproducirlo
+    \item Capturas de pantalla (si aplica)
+    \item Navegador y versión que está usando
+\end{itemize}
+\end{infobox}
+
+% ============================================
+% APÉNDICES
+% ============================================
+\appendix
+
+\chapter{Atajos de Teclado}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Atajo} & \textbf{Acción} \\
+\midrule
+Ctrl + K & Activar buscador global \\
+Esc & Cerrar modales \\
+Tab & Navegar entre campos de formulario \\
+Enter & Confirmar en formularios \\
+\bottomrule
+\end{tabular}
+\caption{Atajos de teclado disponibles}
+\end{table}
+
+\chapter{Glosario de Términos}
+
+\begin{description}
+    \item[Bundle] Producto compuesto por otros productos. También llamado "pack" o "caja".
+    
+    \item[ERP] Enterprise Resource Planning. Sistema de gestión empresarial integral.
+    
+    \item[FIFO] First In, First Out. Método de gestión de inventario donde se usan primero los productos más antiguos.
+    
+    \item[Lote] Conjunto de productos con la misma fecha de vencimiento que ingresaron juntos al sistema.
+    
+    \item[Merma] Pérdida de inventario por vencimiento, daño, robo u otras causas.
+    
+    \item[Multi-tenant] Capacidad del sistema de gestionar múltiples empresas en una sola instalación.
+    
+    \item[SKU] Stock Keeping Unit. Código único identificador de un producto.
+    
+    \item[Stock Crítico] Nivel mínimo de inventario que genera alertas.
+    
+    \item[Tenant] Empresa u organización en un sistema multi-tenant.
+\end{description}
+
+% ============================================
+% FIN DEL DOCUMENTO
+% ============================================
+
+\end{document}

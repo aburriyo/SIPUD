@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, g, abort
 from flask_login import current_user, login_required
-from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment, Tenant, Wastage
+from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from bson import ObjectId
@@ -71,50 +71,6 @@ def create_product():
         )
         new_product.save()
 
-        # Handle initial stock: create a Lot if initial_stock > 0
-        initial_stock = int(data.get('initial_stock', 0))
-        if initial_stock > 0:
-            # Generate lot code if not provided
-            lot_code = data.get('initial_lot_code', '').strip()
-            if not lot_code:
-                lot_code = f"INIT-{new_product.sku}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            
-            # Find or create an "Initial Stock" inbound order for today
-            today_start = datetime.combine(datetime.now().date(), datetime.min.time())
-            today_end = datetime.combine(datetime.now().date() + timedelta(days=1), datetime.min.time())
-            
-            initial_order = InboundOrder.objects(
-                tenant=tenant,
-                supplier_name="Stock Inicial",
-                created_at__gte=today_start,
-                created_at__lt=today_end
-            ).first()
-            
-            if not initial_order:
-                initial_order = InboundOrder(
-                    supplier_name="Stock Inicial",
-                    invoice_number=f"INIT-{datetime.now().strftime('%Y%m%d')}",
-                    status="received",
-                    date_received=datetime.now(),
-                    notes="Orden automática para stock inicial de productos nuevos",
-                    tenant=tenant,
-                    created_at=datetime.now()
-                )
-                initial_order.save()
-            
-            # Create lot for initial stock
-            initial_lot = Lot(
-                product=new_product,
-                order=initial_order,
-                tenant=tenant,
-                lot_code=lot_code,
-                quantity_initial=initial_stock,
-                quantity_current=initial_stock,
-                expiry_date=None,
-                created_at=datetime.now()
-            )
-            initial_lot.save()
-
         # Handle bundle components
         if 'bundle_components' in data and data['bundle_components']:
             for component in data['bundle_components']:
@@ -127,12 +83,11 @@ def create_product():
                 bundle_item.save()
 
         # Log activity
-        stock_msg = f', stock inicial: {initial_stock}' if initial_stock > 0 else ''
         ActivityLog.log(
             user=current_user,
             action='create',
             module='products',
-            description=f'Creó producto "{data["name"]}" (SKU: {data["sku"]}{stock_msg})',
+            description=f'Creó producto "{data["name"]}" (SKU: {data["sku"]})',
             target_id=str(new_product.id),
             target_type='Product',
             request=request,
@@ -239,95 +194,6 @@ def update_product(id):
             changes.append('componentes de bundle actualizados')
 
         product.save()
-
-        # Handle stock adjustment (optional)
-        stock_adjustment_type = data.get('stock_adjustment_type', '')
-        stock_adjustment_qty = int(data.get('stock_adjustment_quantity', 0))
-        stock_adjustment_reason = data.get('stock_adjustment_reason', '').strip()
-
-        if stock_adjustment_type and stock_adjustment_qty > 0:
-            if stock_adjustment_type == 'add':
-                # Add stock: create a new Lot
-                lot_code = data.get('stock_adjustment_lot_code', '').strip()
-                if not lot_code:
-                    lot_code = f"ADJ-{product.sku}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-                # Find or create an "Ajuste de Inventario" inbound order for today
-                today_start = datetime.combine(datetime.now().date(), datetime.min.time())
-                today_end = datetime.combine(datetime.now().date() + timedelta(days=1), datetime.min.time())
-
-                adj_order = InboundOrder.objects(
-                    tenant=tenant,
-                    supplier_name="Ajuste de Inventario",
-                    created_at__gte=today_start,
-                    created_at__lt=today_end
-                ).first()
-
-                if not adj_order:
-                    adj_order = InboundOrder(
-                        supplier_name="Ajuste de Inventario",
-                        invoice_number=f"ADJ-{datetime.now().strftime('%Y%m%d')}",
-                        status="received",
-                        date_received=datetime.now(),
-                        notes="Orden automática para ajustes de inventario",
-                        tenant=tenant,
-                        created_at=datetime.now()
-                    )
-                    adj_order.save()
-
-                # Create lot for added stock
-                new_lot = Lot(
-                    product=product,
-                    order=adj_order,
-                    tenant=tenant,
-                    lot_code=lot_code,
-                    quantity_initial=stock_adjustment_qty,
-                    quantity_current=stock_adjustment_qty,
-                    expiry_date=None,
-                    created_at=datetime.now()
-                )
-                new_lot.save()
-
-                reason_text = f' ({stock_adjustment_reason})' if stock_adjustment_reason else ''
-                changes.append(f'stock +{stock_adjustment_qty} unidades{reason_text}')
-
-            elif stock_adjustment_type == 'subtract':
-                # Subtract stock: validate and deduct from lots (FIFO), create Wastage record
-                current_stock = product.total_stock
-                if stock_adjustment_qty > current_stock:
-                    return jsonify({
-                        'error': f'No se puede restar {stock_adjustment_qty} unidades. Stock disponible: {current_stock}'
-                    }), 400
-
-                # Deduct from lots using FIFO
-                remaining_to_deduct = stock_adjustment_qty
-                available_lots = sorted(
-                    [l for l in product.lots if l.quantity_current > 0],
-                    key=lambda x: x.created_at
-                )
-
-                for lot in available_lots:
-                    if remaining_to_deduct <= 0:
-                        break
-                    deduct = min(lot.quantity_current, remaining_to_deduct)
-                    lot.quantity_current -= deduct
-                    remaining_to_deduct -= deduct
-                    lot.save()
-
-                # Create wastage record for the adjustment
-                wastage_reason = stock_adjustment_reason or 'Ajuste de inventario'
-                wastage = Wastage(
-                    product=product,
-                    quantity=stock_adjustment_qty,
-                    reason=wastage_reason,
-                    notes=f'Ajuste manual desde edición de producto por {current_user.full_name or current_user.username}',
-                    tenant=tenant,
-                    date_created=datetime.now()
-                )
-                wastage.save()
-
-                reason_text = f' ({stock_adjustment_reason})' if stock_adjustment_reason else ''
-                changes.append(f'stock -{stock_adjustment_qty} unidades{reason_text}')
 
         # Log activity
         if changes:
