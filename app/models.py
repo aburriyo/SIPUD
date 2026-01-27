@@ -16,7 +16,7 @@ ROLE_PERMISSIONS = {
         'wastage': ['view', 'create', 'delete'],
         'reports': ['view', 'export'],
         'activity_log': ['view'],
-        'customers': ['view', 'export', 'sync'],
+        'customers': ['view', 'create', 'export', 'sync'],
     },
     'manager': {
         'users': ['view', 'create', 'edit'],  # No delete
@@ -26,7 +26,7 @@ ROLE_PERMISSIONS = {
         'wastage': ['view', 'create', 'delete'],
         'reports': ['view', 'export'],
         'activity_log': [],  # No access
-        'customers': ['view', 'export'],
+        'customers': ['view', 'create', 'export'],
     },
     'warehouse': {
         'users': [],
@@ -478,7 +478,7 @@ class LogisticsRoute(db.Document):
 # SHOPIFY INTEGRATION - CUSTOMERS & ORDERS
 # ============================================
 class ShopifyCustomer(db.Document):
-    """Cliente sincronizado desde Shopify (solo lectura)"""
+    """Cliente (Shopify, manual o importado)"""
     name = db.StringField(max_length=200)
     email = db.StringField(max_length=200)
     phone = db.StringField(max_length=50)
@@ -488,8 +488,11 @@ class ShopifyCustomer(db.Document):
     address_province = db.StringField(max_length=100)
     address_country = db.StringField(max_length=100)
     
+    # Source tracking
+    source = db.StringField(max_length=20, default='shopify', choices=['shopify', 'manual', 'import'])
+    
     # Shopify fields
-    shopify_id = db.StringField(max_length=50, unique=True, required=True)
+    shopify_id = db.StringField(max_length=50, unique=True, sparse=True)
     tags = db.StringField(max_length=500)
     
     # Stats (calculated from orders)

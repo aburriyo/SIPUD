@@ -1,16 +1,37 @@
 {% extends "base.html" %}
 
-{% block title %}Clientes Shopify{% endblock %}
+{% block title %}Clientes{% endblock %}
 
 {% block content %}
 <div x-data="customersApp()">
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
-            <h1 class="text-xl sm:text-2xl font-bold text-slate-800">Clientes Shopify</h1>
-            <p class="text-xs sm:text-sm text-slate-500">Vista de clientes sincronizados desde Shopify</p>
+            <h1 class="text-xl sm:text-2xl font-bold text-slate-800">Clientes</h1>
+            <p class="text-xs sm:text-sm text-slate-500">Gestión de clientes</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
+            {% if current_user.has_permission('customers', 'create') %}
+            <button @click="showAddModal = true"
+                class="inline-flex items-center justify-center px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
+                <svg class="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                <span class="hidden sm:inline">Agregar Cliente</span>
+            </button>
+            {% endif %}
+
+            {% if current_user.has_permission('customers', 'sync') %}
+            <button @click="showImportModal = true"
+                class="inline-flex items-center justify-center px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
+                <svg class="w-4 h-4 sm:mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m4-8l-4-4m0 0L16 8m4-4v12"></path>
+                </svg>
+                <span class="hidden sm:inline">Importar Excel</span>
+            </button>
+            {% endif %}
+
             <button @click="exportExcel()"
                 class="inline-flex items-center justify-center px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
                 <svg class="w-4 h-4 sm:mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -234,6 +255,188 @@
             </div>
         </div>
     </div>
+    <!-- Add Customer Modal -->
+    <div x-show="showAddModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;"
+        x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="showAddModal = false"></div>
+
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:w-full sm:max-w-lg"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+
+                <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-900">Agregar Cliente</h3>
+                    <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-500">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="px-6 py-4 space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Nombre *</label>
+                        <input type="text" x-model="newCustomer.name"
+                            class="w-full rounded-lg border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                            placeholder="Nombre completo">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Email</label>
+                            <input type="email" x-model="newCustomer.email"
+                                class="w-full rounded-lg border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                placeholder="email@ejemplo.com">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Teléfono</label>
+                            <input type="text" x-model="newCustomer.phone"
+                                class="w-full rounded-lg border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                placeholder="+56 9 1234 5678">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Ciudad</label>
+                            <input type="text" x-model="newCustomer.address_city"
+                                class="w-full rounded-lg border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                placeholder="Santiago">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">Provincia</label>
+                            <input type="text" x-model="newCustomer.address_province"
+                                class="w-full rounded-lg border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                placeholder="Región Metropolitana">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-1">País</label>
+                            <input type="text" x-model="newCustomer.address_country"
+                                class="w-full rounded-lg border-slate-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                                placeholder="Chile">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                    <button @click="showAddModal = false"
+                        class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-white transition-colors">
+                        Cancelar
+                    </button>
+                    <button @click="saveNewCustomer()"
+                        :disabled="!newCustomer.name.trim()"
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        Guardar Cliente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Excel Modal -->
+    <div x-show="showImportModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;"
+        x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+
+        <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="closeImportModal()"></div>
+
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:w-full sm:max-w-2xl"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+
+                <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-900">Importar Clientes desde Excel</h3>
+                    <button @click="closeImportModal()" class="text-slate-400 hover:text-slate-500">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="px-6 py-4">
+                    <!-- File Upload -->
+                    <div x-show="!importPreview">
+                        <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-primary-400 transition-colors">
+                            <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                            <p class="mt-2 text-sm text-slate-600">Arrastra tu archivo Excel aquí o</p>
+                            <label class="mt-2 inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm cursor-pointer transition-colors">
+                                <span>Seleccionar archivo</span>
+                                <input type="file" accept=".xlsx" class="hidden" @change="previewImport($event)">
+                            </label>
+                            <p class="mt-2 text-xs text-slate-500">Formato: .xlsx con columnas Nombre, Email, Teléfono, Ciudad, Provincia, País</p>
+                        </div>
+                    </div>
+
+                    <!-- Preview -->
+                    <div x-show="importPreview">
+                        <div class="mb-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-slate-700">
+                                    <span x-text="importPreviewData.length"></span> clientes encontrados
+                                </p>
+                                <p class="text-xs text-slate-500" x-text="importFileName"></p>
+                            </div>
+                            <button @click="resetImport()" class="text-sm text-primary-600 hover:text-primary-800 font-medium">
+                                Cambiar archivo
+                            </button>
+                        </div>
+                        <div class="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
+                            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                <thead class="bg-slate-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">#</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Nombre</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Email</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Teléfono</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-slate-500">Ciudad</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <template x-for="(row, idx) in importPreviewData" :key="idx">
+                                        <tr class="hover:bg-slate-50">
+                                            <td class="px-3 py-2 text-slate-400" x-text="idx + 1"></td>
+                                            <td class="px-3 py-2 font-medium text-slate-900" x-text="row.name"></td>
+                                            <td class="px-3 py-2 text-slate-600" x-text="row.email || '-'"></td>
+                                            <td class="px-3 py-2 text-slate-600" x-text="row.phone || '-'"></td>
+                                            <td class="px-3 py-2 text-slate-600" x-text="row.city || '-'"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                    <button @click="closeImportModal()"
+                        class="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-white transition-colors">
+                        Cancelar
+                    </button>
+                    <button x-show="importPreview" @click="confirmImport()"
+                        :disabled="importing"
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-show="!importing">Importar <span x-text="importPreviewData.length"></span> Clientes</span>
+                        <span x-show="importing">Importando...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -246,10 +449,25 @@ function customersApp() {
             new_this_month: 0
         },
         showModal: false,
+        showAddModal: false,
+        showImportModal: false,
         currentCustomer: {},
         currentOrders: [],
         syncing: false,
+        importing: false,
+        importPreview: false,
+        importPreviewData: [],
+        importFileName: '',
+        importFile: null,
         table: null,
+        newCustomer: {
+            name: '',
+            email: '',
+            phone: '',
+            address_city: '',
+            address_province: '',
+            address_country: ''
+        },
 
         init() {
             this.loadStats();
@@ -360,6 +578,114 @@ function customersApp() {
 
         exportExcel() {
             window.location.href = '/customers/api/customers/export';
+        },
+
+        saveNewCustomer() {
+            if (!this.newCustomer.name.trim()) {
+                alert('El nombre es requerido');
+                return;
+            }
+
+            fetch('/customers/api/customers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.newCustomer)
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (!ok) {
+                    alert('Error: ' + (data.error || 'Error al crear cliente'));
+                    return;
+                }
+                alert('Cliente creado exitosamente');
+                this.showAddModal = false;
+                this.newCustomer = { name: '', email: '', phone: '', address_city: '', address_province: '', address_country: '' };
+                this.loadStats();
+                this.table.ajax.reload();
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Error de conexión al crear cliente');
+            });
+        },
+
+        previewImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (!file.name.endsWith('.xlsx')) {
+                alert('Por favor selecciona un archivo .xlsx');
+                return;
+            }
+
+            this.importFile = file;
+            this.importFileName = file.name;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/customers/api/customers/import?preview=true', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                if (!ok) {
+                    alert('Error: ' + (data.error || 'Error al leer archivo'));
+                    return;
+                }
+                this.importPreviewData = data.rows;
+                this.importPreview = true;
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Error al procesar archivo');
+            });
+        },
+
+        resetImport() {
+            this.importPreview = false;
+            this.importPreviewData = [];
+            this.importFile = null;
+            this.importFileName = '';
+        },
+
+        closeImportModal() {
+            this.showImportModal = false;
+            this.resetImport();
+        },
+
+        confirmImport() {
+            if (!this.importFile) return;
+
+            this.importing = true;
+            const formData = new FormData();
+            formData.append('file', this.importFile);
+
+            fetch('/customers/api/customers/import', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                this.importing = false;
+                if (!ok) {
+                    alert('Error: ' + (data.error || 'Error al importar'));
+                    return;
+                }
+                let message = `Importación completada: ${data.created} de ${data.total} clientes creados.`;
+                if (data.errors && data.errors.length > 0) {
+                    message += `\n\nErrores:\n${data.errors.join('\n')}`;
+                }
+                alert(message);
+                this.closeImportModal();
+                this.loadStats();
+                this.table.ajax.reload();
+            })
+            .catch(err => {
+                this.importing = false;
+                console.error('Error:', err);
+                alert('Error de conexión al importar');
+            });
         },
 
         formatCurrency(value) {

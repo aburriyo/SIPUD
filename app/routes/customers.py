@@ -1,4 +1,5 @@
 import os
+import time
 from flask import Blueprint, jsonify, request, g, render_template, send_file
 from flask_login import login_required, current_user
 from app.models import ShopifyCustomer, ShopifyOrder, ShopifyOrderLineItem, Tenant
@@ -7,7 +8,7 @@ from bson import ObjectId
 from functools import wraps
 import requests
 from io import BytesIO
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 
 bp = Blueprint('customers', __name__, url_prefix='/customers')
@@ -152,6 +153,167 @@ def get_customer_detail(customer_id):
     })
 
 
+@bp.route('/api/customers', methods=['POST'])
+@login_required
+@permission_required('customers', 'create')
+def create_customer():
+    """Create a manual customer"""
+    tenant = g.current_tenant
+    data = request.get_json()
+
+    if not data or not data.get('name', '').strip():
+        return jsonify({'error': 'El nombre es requerido'}), 400
+
+    # Generate unique shopify_id for manual customers
+    shopify_id = f"MANUAL-{int(time.time() * 1000)}"
+
+    try:
+        customer = ShopifyCustomer(
+            name=data['name'].strip(),
+            email=data.get('email', '').strip() or None,
+            phone=data.get('phone', '').strip() or None,
+            address_city=data.get('address_city', '').strip() or None,
+            address_province=data.get('address_province', '').strip() or None,
+            address_country=data.get('address_country', '').strip() or None,
+            shopify_id=shopify_id,
+            source='manual',
+            total_orders=0,
+            total_spent=0,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            tenant=tenant
+        )
+        customer.save()
+
+        return jsonify({
+            'success': True,
+            'message': 'Cliente creado exitosamente',
+            'customer': {
+                'id': str(customer.id),
+                'name': customer.name,
+                'email': customer.email or '',
+                'source': customer.source,
+            }
+        }), 201
+    except Exception as e:
+        return jsonify({'error': f'Error al crear cliente: {str(e)}'}), 500
+
+
+@bp.route('/api/customers/import', methods=['POST'])
+@login_required
+@permission_required('customers', 'sync')
+def import_customers():
+    """Import customers from Excel file"""
+    tenant = g.current_tenant
+
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se proporcionó archivo'}), 400
+
+    file = request.files['file']
+    if not file.filename.endswith('.xlsx'):
+        return jsonify({'error': 'El archivo debe ser .xlsx'}), 400
+
+    try:
+        wb = load_workbook(file, read_only=True)
+        ws = wb.active
+
+        # Read header row
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+
+        # Map column names (case-insensitive)
+        col_map = {}
+        field_aliases = {
+            'nombre': 'name',
+            'name': 'name',
+            'email': 'email',
+            'correo': 'email',
+            'teléfono': 'phone',
+            'telefono': 'phone',
+            'phone': 'phone',
+            'ciudad': 'city',
+            'city': 'city',
+            'provincia': 'province',
+            'province': 'province',
+            'región': 'province',
+            'region': 'province',
+            'país': 'country',
+            'pais': 'country',
+            'country': 'country',
+        }
+        for idx, h in enumerate(headers):
+            if h:
+                key = h.strip().lower()
+                if key in field_aliases:
+                    col_map[field_aliases[key]] = idx
+
+        if 'name' not in col_map:
+            return jsonify({'error': 'La columna "Nombre" es requerida en el archivo Excel'}), 400
+
+        # Check if this is a preview request
+        preview = request.args.get('preview', '').lower() == 'true'
+
+        rows_data = []
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            name = row[col_map['name']] if col_map.get('name') is not None and row[col_map['name']] else None
+            if not name:
+                continue
+            rows_data.append({
+                'name': str(name).strip(),
+                'email': str(row[col_map['email']]).strip() if col_map.get('email') is not None and row[col_map['email']] else '',
+                'phone': str(row[col_map['phone']]).strip() if col_map.get('phone') is not None and row[col_map['phone']] else '',
+                'city': str(row[col_map['city']]).strip() if col_map.get('city') is not None and row[col_map['city']] else '',
+                'province': str(row[col_map['province']]).strip() if col_map.get('province') is not None and row[col_map['province']] else '',
+                'country': str(row[col_map['country']]).strip() if col_map.get('country') is not None and row[col_map['country']] else '',
+            })
+
+        wb.close()
+
+        if preview:
+            return jsonify({
+                'preview': True,
+                'total': len(rows_data),
+                'rows': rows_data[:100],  # Preview first 100
+            })
+
+        # Import all rows
+        timestamp = int(time.time())
+        created = 0
+        errors = []
+
+        for idx, row_data in enumerate(rows_data):
+            try:
+                shopify_id = f"IMPORT-{idx + 1}-{timestamp}"
+                customer = ShopifyCustomer(
+                    name=row_data['name'],
+                    email=row_data['email'] or None,
+                    phone=row_data['phone'] or None,
+                    address_city=row_data['city'] or None,
+                    address_province=row_data['province'] or None,
+                    address_country=row_data['country'] or None,
+                    shopify_id=shopify_id,
+                    source='import',
+                    total_orders=0,
+                    total_spent=0,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                    tenant=tenant
+                )
+                customer.save()
+                created += 1
+            except Exception as e:
+                errors.append(f'Fila {idx + 2}: {str(e)}')
+
+        return jsonify({
+            'success': True,
+            'created': created,
+            'total': len(rows_data),
+            'errors': errors[:10],
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Error al procesar archivo: {str(e)}'}), 500
+
+
 @bp.route('/api/customers/stats')
 @login_required
 @permission_required('customers', 'view')
@@ -241,6 +403,116 @@ def export_excel():
         as_attachment=True,
         download_name=f'clientes_shopify_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
     )
+
+
+@bp.route('/api/customers', methods=['POST'])
+@login_required
+@permission_required('customers', 'create')
+def create_customer():
+    """Create a manual customer"""
+    tenant = g.current_tenant
+    data = request.get_json()
+    
+    if not data or not data.get('name', '').strip():
+        return jsonify({'error': 'El nombre es requerido'}), 400
+    
+    import time
+    customer = ShopifyCustomer(
+        name=data['name'].strip(),
+        email=data.get('email', '').strip() or None,
+        phone=data.get('phone', '').strip() or None,
+        address_city=data.get('address_city', '').strip() or None,
+        address_province=data.get('address_province', '').strip() or None,
+        address_country=data.get('address_country', '').strip() or 'Chile',
+        source='manual',
+        shopify_id=f"MANUAL-{int(time.time() * 1000)}",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        tenant=tenant
+    )
+    customer.save()
+    
+    return jsonify({
+        'id': str(customer.id),
+        'name': customer.name,
+        'message': 'Cliente creado exitosamente'
+    }), 201
+
+
+@bp.route('/api/customers/import', methods=['POST'])
+@login_required
+@permission_required('customers', 'sync')
+def import_customers():
+    """Import customers from Excel file"""
+    tenant = g.current_tenant
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No se envió archivo'}), 400
+    
+    file = request.files['file']
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        return jsonify({'error': 'Solo se aceptan archivos Excel (.xlsx)'}), 400
+    
+    try:
+        from openpyxl import load_workbook
+        import time
+        
+        wb = load_workbook(file, read_only=True)
+        ws = wb.active
+        
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        
+        imported = 0
+        errors = []
+        timestamp = int(time.time())
+        
+        for idx, row in enumerate(rows):
+            try:
+                name = str(row[0]).strip() if row[0] else None
+                if not name or name == 'None':
+                    continue
+                
+                email = str(row[1]).strip() if len(row) > 1 and row[1] else None
+                phone = str(row[2]).strip() if len(row) > 2 and row[2] else None
+                city = str(row[3]).strip() if len(row) > 3 and row[3] else None
+                province = str(row[4]).strip() if len(row) > 4 and row[4] else None
+                country = str(row[5]).strip() if len(row) > 5 and row[5] else 'Chile'
+                
+                if email and email != 'None':
+                    existing = ShopifyCustomer.objects(email=email, tenant=tenant).first()
+                    if existing:
+                        errors.append(f'Fila {idx+2}: {name} ya existe (email duplicado)')
+                        continue
+                
+                customer = ShopifyCustomer(
+                    name=name,
+                    email=email if email and email != 'None' else None,
+                    phone=phone if phone and phone != 'None' else None,
+                    address_city=city if city and city != 'None' else None,
+                    address_province=province if province and province != 'None' else None,
+                    address_country=country if country and country != 'None' else 'Chile',
+                    source='import',
+                    shopify_id=f"IMPORT-{idx}-{timestamp}",
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                    tenant=tenant
+                )
+                customer.save()
+                imported += 1
+                
+            except Exception as e:
+                errors.append(f'Fila {idx+2}: {str(e)}')
+        
+        wb.close()
+        
+        return jsonify({
+            'imported': imported,
+            'total_rows': len(rows),
+            'errors': errors
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error al procesar archivo: {str(e)}'}), 500
 
 
 @bp.route('/api/customers/sync', methods=['POST'])
