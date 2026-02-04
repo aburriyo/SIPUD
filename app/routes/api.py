@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, g, abort, current_app
 from flask_login import current_user, login_required
-from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment, Tenant, Wastage, User
+from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment, Tenant, Wastage, User, utc_now
 from app.extensions import limiter
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -446,7 +446,7 @@ def get_dashboard_stats():
     } for s in recent_sales]
 
     # Chart Data Logic
-    end_date = datetime.utcnow().date()
+    end_date = utc_now().date()
     start_date = end_date - timedelta(days=6)
     group_by = 'day'
 
@@ -665,7 +665,7 @@ def create_sale():
         if sale_type == 'en_local':
             # Venta en local: automáticamente entregada
             delivery_status = 'entregado'
-            date_delivered = datetime.utcnow()
+            date_delivered = utc_now()
         else:
             # Venta con despacho: pendiente por defecto
             delivery_status = data.get('delivery_status', 'pendiente')
@@ -885,7 +885,7 @@ def update_sale(id):
 
             # Auto-set date_delivered cuando se marca como entregado o con observaciones
             if new_delivery in ['entregado', 'con_observaciones'] and not sale.date_delivered:
-                sale.date_delivered = datetime.utcnow()
+                sale.date_delivered = utc_now()
 
             changes.append(f'estado entrega: {old_delivery} → {new_delivery}')
             sale.delivery_status = new_delivery

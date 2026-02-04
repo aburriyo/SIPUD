@@ -4,7 +4,7 @@ Gestión de usuarios y monitor de actividades
 """
 from flask import Blueprint, render_template, request, jsonify, g, abort
 from flask_login import login_required, current_user
-from app.models import User, Tenant, ActivityLog, ROLE_PERMISSIONS
+from app.models import User, Tenant, ActivityLog, ROLE_PERMISSIONS, utc_now
 from functools import wraps
 from bson import ObjectId
 from mongoengine import DoesNotExist
@@ -383,7 +383,7 @@ def get_activity_stats():
     from datetime import datetime, timedelta
 
     # Last 24 hours
-    since = datetime.utcnow() - timedelta(hours=24)
+    since = utc_now() - timedelta(hours=24)
     recent_logs = ActivityLog.objects(tenant=tenant, created_at__gte=since)
 
     # Count by action

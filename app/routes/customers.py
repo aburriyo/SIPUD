@@ -3,7 +3,7 @@ import sys
 import time
 from flask import Blueprint, jsonify, request, g, render_template, send_file
 from flask_login import login_required, current_user
-from app.models import ShopifyCustomer, ShopifyOrder, ShopifyOrderLineItem, Tenant
+from app.models import ShopifyCustomer, ShopifyOrder, ShopifyOrderLineItem, Tenant, utc_now
 from datetime import datetime, timedelta
 from bson import ObjectId
 from functools import wraps
@@ -205,8 +205,8 @@ def create_customer():
             source='manual',
             total_orders=0,
             total_spent=0,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=utc_now(),
+            updated_at=utc_now(),
             tenant=tenant
         )
         customer.save()
@@ -320,8 +320,8 @@ def import_customers():
                     source='import',
                     total_orders=0,
                     total_spent=0,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
+                    created_at=utc_now(),
+                    updated_at=utc_now(),
                     tenant=tenant
                 )
                 customer.save()
@@ -452,8 +452,8 @@ def api_create_customer_v2():
         address_country=data.get('address_country', '').strip() or 'Chile',
         source='manual',
         shopify_id=f"MANUAL-{int(time.time() * 1000)}",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=utc_now(),
+        updated_at=utc_now(),
         tenant=tenant
     )
     customer.save()
@@ -519,8 +519,8 @@ def api_import_customers_v2():
                     address_country=country if country and country != 'None' else 'Chile',
                     source='import',
                     shopify_id=f"IMPORT-{idx}-{timestamp}",
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
+                    created_at=utc_now(),
+                    updated_at=utc_now(),
                     tenant=tenant
                 )
                 customer.save()
@@ -685,8 +685,8 @@ def sync_shopify():
                                 address_city=shipping_addr.get('city'),
                                 address_province=shipping_addr.get('province'),
                                 address_country=shipping_addr.get('country', 'Chile'),
-                                created_at=datetime.utcnow(),
-                                updated_at=datetime.utcnow()
+                                created_at=utc_now(),
+                                updated_at=utc_now()
                             )
                             customer.save()
                             stats['customers_synced'] += 1
@@ -837,7 +837,7 @@ def sync_shopify():
                         lot.save()
                     else:
                         # Create inbound order if needed
-                        today_str = datetime.utcnow().strftime('%Y%m%d')
+                        today_str = utc_now().strftime('%Y%m%d')
                         order = InboundOrder.objects(
                             invoice_number=f'SHOPIFY-SYNC-{today_str}',
                             tenant=tenant
@@ -847,10 +847,10 @@ def sync_shopify():
                                 supplier_name='Sync Shopify',
                                 invoice_number=f'SHOPIFY-SYNC-{today_str}',
                                 status='received',
-                                date_received=datetime.utcnow(),
+                                date_received=utc_now(),
                                 notes='Stock sincronizado desde Shopify',
                                 tenant=tenant,
-                                created_at=datetime.utcnow()
+                                created_at=utc_now()
                             )
                             order.save()
                         
@@ -894,7 +894,7 @@ def sync_shopify():
                 sales_channel='shopify',  # NEW: mark as Shopify origin
                 delivery_status='entregado' if s_order.fulfillment_status == 'fulfilled' else 'pendiente',
                 payment_status='pagado' if s_order.financial_status == 'paid' else 'pendiente',
-                date_created=s_order.created_at or datetime.utcnow(),
+                date_created=s_order.created_at or utc_now(),
                 shopify_order_id=str(s_order.shopify_id),
                 shopify_order_number=s_order.order_number,
                 tenant=tenant

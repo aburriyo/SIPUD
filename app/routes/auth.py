@@ -5,7 +5,7 @@ Maneja login, logout, gestión de usuarios y recuperación de contraseña
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, g, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_mail import Message
-from app.models import User, ActivityLog
+from app.models import User, ActivityLog, utc_now
 from app.extensions import mail
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from werkzeug.security import generate_password_hash
@@ -57,7 +57,7 @@ def login():
         if user and user.check_password(password) and user.is_active:
             remember = request.form.get('remember') == 'on'
             login_user(user, remember=remember)
-            user.last_login = datetime.utcnow()
+            user.last_login = utc_now()
             user.save()
 
             # Log successful login

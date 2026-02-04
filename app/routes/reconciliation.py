@@ -5,7 +5,7 @@ Permite importar cartolas bancarias y conciliar con ventas.
 import os
 from flask import Blueprint, jsonify, request, g, render_template
 from flask_login import login_required, current_user
-from app.models import BankTransaction, Sale, Tenant, ActivityLog
+from app.models import BankTransaction, Sale, Tenant, ActivityLog, utc_now
 from datetime import datetime, timedelta
 from decimal import Decimal
 from bson import ObjectId
@@ -447,7 +447,7 @@ def match_transaction(tx_id):
     tx.matched_sale = sale
     tx.status = 'matched'
     tx.match_type = 'manual'
-    tx.matched_at = datetime.utcnow()
+    tx.matched_at = utc_now()
     tx.matched_by = current_user
     tx.save()
     
@@ -636,7 +636,7 @@ def auto_match_all():
                 tx.matched_sale = best_match
                 tx.status = 'matched'
                 tx.match_type = 'auto'
-                tx.matched_at = datetime.utcnow()
+                tx.matched_at = utc_now()
                 tx.matched_by = current_user
                 tx.save()
                 

@@ -1,6 +1,16 @@
 """Pytest configuration and fixtures for SIPUD tests."""
 import pytest
 import os
+import warnings
+
+# Suppress deprecation warnings from dependencies
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="flask_mongoengine")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="werkzeug")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="mongoengine")
+warnings.filterwarnings("ignore", message=".*ast.Str.*")
+warnings.filterwarnings("ignore", message=".*ast.Constant.*")
+warnings.filterwarnings("ignore", message=".*JSONEncoder.*")
+warnings.filterwarnings("ignore", message=".*json_encoder.*")
 
 # Set test environment before importing app
 os.environ['TESTING'] = '1'

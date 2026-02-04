@@ -1,5 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from app.extensions import db
+
+
+def utc_now():
+    """Timezone-aware UTC now (replaces deprecated utc_now())"""
+    return datetime.now(timezone.utc)
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
@@ -91,7 +96,7 @@ SALES_CHANNELS = {
 class Tenant(db.Document):
     name = db.StringField(max_length=100, unique=True, required=True)
     slug = db.StringField(max_length=50, unique=True, required=True)
-    created_at = db.DateTimeField(default=datetime.utcnow)
+    created_at = db.DateTimeField(default=utc_now)
     meta = {'collection': 'tenants'}
 
 
@@ -111,7 +116,7 @@ class User(db.Document, UserMixin):
     full_name = db.StringField(max_length=100)
     is_active = db.BooleanField(default=True)
     tenant = db.ReferenceField(Tenant)
-    created_at = db.DateTimeField(default=datetime.utcnow)
+    created_at = db.DateTimeField(default=utc_now)
     last_login = db.DateTimeField()
     meta = {'collection': 'users'}
 
@@ -195,7 +200,7 @@ class InboundOrder(db.Document):
     supplier_name = db.StringField(max_length=200)  # Cache of supplier name
     invoice_number = db.StringField(max_length=50)
     date_received = db.DateTimeField()
-    created_at = db.DateTimeField(default=datetime.utcnow)
+    created_at = db.DateTimeField(default=utc_now)
     total = db.DecimalField(precision=2, default=0)  # FIXED: Decimal for monetary precision
     status = db.StringField(max_length=20, default='pending')  # pending, received, paid
     notes = db.StringField()
@@ -215,7 +220,7 @@ class Lot(db.Document):
     quantity_initial = db.IntField(required=True)
     quantity_current = db.IntField(required=True)
     expiry_date = db.DateField()
-    created_at = db.DateTimeField(default=datetime.utcnow)
+    created_at = db.DateTimeField(default=utc_now)
     meta = {'collection': 'lots'}
 
 
@@ -260,7 +265,7 @@ class Sale(db.Document):
     )
 
     # Dates
-    date_created = db.DateTimeField(default=datetime.utcnow)
+    date_created = db.DateTimeField(default=utc_now)
 
     # Shopify link (read-only sync)
     shopify_order_id = db.StringField(max_length=50)  # Shopify order ID for sync tracking
@@ -337,7 +342,7 @@ class Wastage(db.Document):
     quantity = db.IntField(required=True)
     reason = db.StringField(max_length=200, required=True)  # vencido, dañado, perdido, etc.
     notes = db.StringField()
-    date_created = db.DateTimeField(default=datetime.utcnow)
+    date_created = db.DateTimeField(default=utc_now)
     tenant = db.ReferenceField(Tenant)
     meta = {'collection': 'wastages'}
 
@@ -361,7 +366,7 @@ class Payment(db.Document):
     notes = db.StringField(max_length=500)  # Notas adicionales
 
     # Auditoría
-    date_created = db.DateTimeField(default=datetime.utcnow)
+    date_created = db.DateTimeField(default=utc_now)
     created_by = db.ReferenceField(User)
 
     meta = {
@@ -395,7 +400,7 @@ class ActivityLog(db.Document):
     ip_address = db.StringField(max_length=45)
     user_agent = db.StringField(max_length=500)
     tenant = db.ReferenceField(Tenant)
-    created_at = db.DateTimeField(default=datetime.utcnow)
+    created_at = db.DateTimeField(default=utc_now)
     meta = {
         'collection': 'activity_logs',
         'indexes': [
@@ -475,7 +480,7 @@ class VehicleMaintenance(db.Document):
     notes = db.StringField()
     status = db.StringField(max_length=20, default='pending')  # pending, completed, overdue
     tenant = db.ReferenceField(Tenant)
-    created_at = db.DateTimeField(default=datetime.utcnow)
+    created_at = db.DateTimeField(default=utc_now)
     meta = {'collection': 'vehicle_maintenances'}
 
 
@@ -517,7 +522,7 @@ class ShopifyCustomer(db.Document):
     
     # Metadata
     created_at = db.DateTimeField()
-    updated_at = db.DateTimeField(default=datetime.utcnow)
+    updated_at = db.DateTimeField(default=utc_now)
     tenant = db.ReferenceField(Tenant)
     
     meta = {
@@ -579,7 +584,7 @@ class BankTransaction(db.Document):
     # Metadata
     source_file = db.StringField(max_length=200)  # Nombre del archivo importado
     row_number = db.IntField()  # Fila original en el Excel
-    created_at = db.DateTimeField(default=datetime.utcnow)
+    created_at = db.DateTimeField(default=utc_now)
     tenant = db.ReferenceField(Tenant)
     
     meta = {
@@ -654,7 +659,7 @@ class ShopifyOrder(db.Document):
     
     # Metadata
     created_at = db.DateTimeField()
-    updated_at = db.DateTimeField(default=datetime.utcnow)
+    updated_at = db.DateTimeField(default=utc_now)
     tenant = db.ReferenceField(Tenant)
     
     meta = {

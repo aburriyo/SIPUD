@@ -7,7 +7,7 @@ Módulo de Hojas de Reparto
 
 from flask import Blueprint, render_template, request, jsonify, g, make_response, current_app
 from flask_login import login_required, current_user
-from app.models import Sale, User, Tenant
+from app.models import Sale, User, Tenant, utc_now
 from app.extensions import db
 from bson import ObjectId
 from datetime import datetime
@@ -42,7 +42,7 @@ class DeliverySheet(db.Document):
     
     # Metadata
     notes = db.StringField(max_length=500)
-    created_at = db.DateTimeField(default=datetime.utcnow)
+    created_at = db.DateTimeField(default=utc_now)
     created_by = db.ReferenceField(User)
     tenant = db.ReferenceField(Tenant)
     
@@ -315,7 +315,7 @@ def update_sale_in_sheet(sheet_id, sale_id):
         sale.delivery_status = data['delivery_status']
         
         if data['delivery_status'] in ['entregado', 'con_observaciones']:
-            sale.date_delivered = datetime.utcnow()
+            sale.date_delivered = utc_now()
     
     if 'delivery_observations' in data:
         sale.delivery_observations = data['delivery_observations']

@@ -5,7 +5,7 @@ Gestiona operaciones diarias del almacén: pedidos, recepciones, mermas
 
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, g, abort
 from flask_login import login_required, current_user
-from app.models import Product, InboundOrder, Wastage, Lot, Supplier, ProductBundle, ActivityLog
+from app.models import Product, InboundOrder, Wastage, Lot, Supplier, ProductBundle, ActivityLog, utc_now
 from datetime import datetime, timedelta
 from bson import ObjectId
 from mongoengine import DoesNotExist
@@ -974,8 +974,8 @@ def assemble_box():
         today_assembly_order = InboundOrder.objects(
             tenant=tenant,
             supplier_name=internal_supplier_name,
-            created_at__gte=datetime.combine(datetime.utcnow().date(), datetime.min.time()),
-            created_at__lt=datetime.combine(datetime.utcnow().date() + timedelta(days=1), datetime.min.time())
+            created_at__gte=datetime.combine(utc_now().date(), datetime.min.time()),
+            created_at__lt=datetime.combine(utc_now().date() + timedelta(days=1), datetime.min.time())
         ).first()
 
         if not today_assembly_order:
@@ -1000,9 +1000,9 @@ def assemble_box():
             today_assembly_order = InboundOrder(
                 supplier=internal_supplier,
                 supplier_name=internal_supplier_name,
-                invoice_number=f"ARM-{datetime.utcnow().strftime('%Y%m%d-%H%M')}",
+                invoice_number=f"ARM-{utc_now().strftime('%Y%m%d-%H%M')}",
                 status="received",
-                date_received=datetime.utcnow(),
+                date_received=utc_now(),
                 notes="Generado automáticamente por proceso de armado de cajas",
                 tenant=tenant,
             )
@@ -1013,11 +1013,11 @@ def assemble_box():
             product=bundle_product,
             order=today_assembly_order,
             tenant=tenant,  # FIXED: Added tenant
-            lot_code=f"KIT-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            lot_code=f"KIT-{utc_now().strftime('%Y%m%d%H%M%S')}",
             quantity_initial=quantity,
             quantity_current=quantity,
             expiry_date=None,
-            created_at=datetime.utcnow(),
+            created_at=utc_now(),
         )
         new_lot.save()
 
