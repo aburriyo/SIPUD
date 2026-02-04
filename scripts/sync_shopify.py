@@ -2,6 +2,9 @@
 """
 Standalone script to sync Shopify customers and orders to SIPUD database.
 Run: python scripts/sync_shopify.py
+
+Uses client credentials grant for authentication (tokens auto-refresh every 24h).
+Required env vars: SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_DOMAIN
 """
 import sys
 import os
@@ -16,9 +19,11 @@ from decimal import Decimal
 import requests
 import re
 
+# Import auth module for client credentials grant
+from shopify_auth import get_auth_headers, get_token_info
+
 # Shopify API Configuration
 SHOPIFY_STORE = os.environ.get('SHOPIFY_STORE_DOMAIN', '')
-SHOPIFY_TOKEN = os.environ.get('SHOPIFY_ACCESS_TOKEN', '')
 SHOPIFY_API_VERSION = '2026-01'
 SHOPIFY_BASE_URL = f'https://{SHOPIFY_STORE}/admin/api/{SHOPIFY_API_VERSION}'
 
@@ -27,7 +32,18 @@ def sync_shopify(tenant_slug='puerto-distribucion'):
     """Main sync function"""
     print(f"🚀 Iniciando sincronización de Shopify para tenant: {tenant_slug}")
     print(f"   Store: {SHOPIFY_STORE}")
-    print(f"   API Version: {SHOPIFY_API_VERSION}\n")
+    print(f"   API Version: {SHOPIFY_API_VERSION}")
+    
+    # Get auth token using client credentials grant
+    print(f"🔐 Obteniendo token de acceso...")
+    try:
+        headers = get_auth_headers()
+        token_info = get_token_info()
+        print(f"   ✅ Token válido (expira en {token_info['expires_in_hours']}h)\n")
+    except Exception as e:
+        print(f"❌ Error obteniendo token: {str(e)}")
+        print("   Verifica SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET y SHOPIFY_STORE_DOMAIN")
+        return
     
     # Get tenant
     tenant = Tenant.objects(slug=tenant_slug).first()
@@ -36,11 +52,6 @@ def sync_shopify(tenant_slug='puerto-distribucion'):
         return
     
     print(f"✅ Tenant encontrado: {tenant.name}\n")
-    
-    headers = {
-        'X-Shopify-Access-Token': SHOPIFY_TOKEN,
-        'Content-Type': 'application/json'
-    }
     
     stats = {
         'customers_synced': 0,
@@ -242,10 +253,13 @@ def sync_shopify(tenant_slug='puerto-distribucion'):
                     order.financial_status = order_data.get('financial_status')
                     order.fulfillment_status = order_data.get('fulfillment_status')
                     
-                    # Shipping address
+                    # Shipping address (captura completa)
                     shipping_address = order_data.get('shipping_address') or {}
+                    order.shipping_address1 = shipping_address.get('address1')
+                    order.shipping_address2 = shipping_address.get('address2')
                     order.shipping_city = shipping_address.get('city')
                     order.shipping_province = shipping_address.get('province')
+                    order.shipping_phone = shipping_address.get('phone')
                     order.note = order_data.get('note')
                     
                     # Line items
@@ -346,7 +360,8 @@ def sync_shopify(tenant_slug='puerto-distribucion'):
     # SYNC PRODUCTS (Shopify → SIPUD Products)
     # ==========================================
     print("📥 Sincronizando productos Shopify → Productos SIPUD...")
-    headers = {'X-Shopify-Access-Token': SHOPIFY_TOKEN, 'Content-Type': 'application/json'}
+    # Refresh headers (token auto-refreshes if needed)
+    headers = get_auth_headers()
     
     products_url = f'{SHOPIFY_BASE_URL}/products.json'
     page_info = None
@@ -467,13 +482,19 @@ def sync_shopify(tenant_slug='puerto-distribucion'):
         
         # Create new Sale from Shopify order
         try:
-            addr_parts = [s_order.shipping_city or '', s_order.shipping_province or '']
+            # Construir dirección completa
+            addr_parts = [
+                s_order.shipping_address1 or '',
+                s_order.shipping_address2 or '',
+                s_order.shipping_city or '',
+                s_order.shipping_province or ''
+            ]
             address = ', '.join(p for p in addr_parts if p)
             
             new_sale = Sale(
                 customer_name=s_order.customer_name or 'Cliente Shopify',
                 address=address,
-                phone='',
+                phone=s_order.shipping_phone or '',
                 sale_type='con_despacho',
                 delivery_status='entregado' if s_order.fulfillment_status == 'fulfilled' else 'pendiente',
                 payment_status='pagado' if s_order.financial_status == 'paid' else 'pendiente',
