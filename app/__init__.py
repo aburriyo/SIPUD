@@ -1,6 +1,6 @@
 from flask import Flask
 from config import Config
-from app.extensions import db, login_manager, mail
+from app.extensions import db, login_manager, mail, limiter
 from bson import ObjectId
 
 
@@ -12,6 +12,7 @@ def create_app(config_class=Config):
     db.init_app(app)
     login_manager.init_app(app)
     mail.init_app(app)
+    limiter.init_app(app)
     login_manager.login_view = "auth.login"
     login_manager.login_message = "Por favor inicia sesión para acceder a esta página."
     login_manager.login_message_category = "info"
@@ -27,7 +28,7 @@ def create_app(config_class=Config):
             return None
 
     # Register blueprints
-    from app.routes import main, api, reports, warehouse, auth, admin, customers
+    from app.routes import main, api, reports, warehouse, auth, admin, customers, delivery, reconciliation
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(main.bp)
@@ -36,6 +37,8 @@ def create_app(config_class=Config):
     app.register_blueprint(warehouse.bp)
     app.register_blueprint(admin.bp)
     app.register_blueprint(customers.bp)
+    app.register_blueprint(delivery.bp)
+    app.register_blueprint(reconciliation.bp)
 
     # Custom Jinja2 filters
     @app.template_filter("translate_status")
@@ -70,6 +73,17 @@ def create_app(config_class=Config):
         }
         return translations.get(status, status)
 
+    @app.template_filter("translate_channel")
+    def translate_channel(channel):
+        """Translate sales channel codes to display names"""
+        translations = {
+            "manual": "Manual",
+            "whatsapp": "WhatsApp",
+            "shopify": "Shopify",
+            "web": "Web",
+        }
+        return translations.get(channel, channel or "Manual")
+
     # Middleware for Tenant Context
     from flask import session, g
     from app.models import Tenant
@@ -99,5 +113,18 @@ def create_app(config_class=Config):
             current_tenant=g.get("current_tenant"),
             tenants=list(Tenant.objects.all())
         )
+
+    # Error handler for rate limiting (429 Too Many Requests)
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        from flask import jsonify, request
+        # Return JSON for API routes, HTML for others
+        if request.path.startswith('/api/'):
+            return jsonify({
+                'error': 'Rate limit exceeded',
+                'message': str(e.description),
+                'retry_after': e.get_response().headers.get('Retry-After', '60')
+            }), 429
+        return e.get_response()
 
     return app

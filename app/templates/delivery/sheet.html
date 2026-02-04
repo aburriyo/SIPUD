@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Hoja de Reparto - {{ sheet.date.strftime('%d/%m/%Y') }}{% endblock %}
+
+{% block content %}
+<div x-data="sheetApp()">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <div>
+            <a href="{{ url_for('delivery.index') }}" class="text-blue-600 hover:text-blue-800 text-sm mb-2 inline-block">
+                ← Volver a Hojas de Reparto
+            </a>
+            <h1 class="text-2xl font-bold text-gray-800">🚚 {{ sheet.name or 'Hoja de Reparto' }}</h1>
+            <p class="text-gray-600">{{ sheet.date.strftime('%A %d de %B, %Y') }}</p>
+        </div>
+        <div class="mt-4 md:mt-0 flex gap-2">
+            {% if sheet.status == 'pendiente' %}
+            <button @click="startRoute()" 
+                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                🚀 Iniciar Ruta
+            </button>
+            {% endif %}
+            <a href="{{ url_for('delivery.generate_pdf', sheet_id=sheet.id) }}" 
+               target="_blank"
+               class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                🖨️ Imprimir PDF
+            </a>
+        </div>
+    </div>
+
+    <!-- Info Card -->
+    <div class="bg-white rounded-lg shadow p-4 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div>
+                <div class="text-gray-500 text-sm">Repartidor</div>
+                <div class="font-semibold">{{ sheet.driver_display_name }}</div>
+                {% if sheet.driver_phone %}
+                <a href="tel:{{ sheet.driver_phone }}" class="text-blue-600 text-sm">{{ sheet.driver_phone }}</a>
+                {% endif %}
+            </div>
+            <div>
+                <div class="text-gray-500 text-sm">Estado</div>
+                {% if sheet.status == 'pendiente' %}
+                <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-sm font-medium">⏳ Pendiente</span>
+                {% elif sheet.status == 'en_ruta' %}
+                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-medium">🚚 En Ruta</span>
+                {% elif sheet.status == 'completado' %}
+                <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-medium">✅ Completado</span>
+                {% endif %}
+            </div>
+            <div>
+                <div class="text-gray-500 text-sm">Entregas</div>
+                <div class="font-semibold">{{ sheet.total_sales }} ventas</div>
+            </div>
+            <div>
+                <div class="text-gray-500 text-sm">Total a Cobrar</div>
+                <div class="font-semibold text-green-600">${{ "{:,.0f}".format(sheet.total_amount) }}</div>
+            </div>
+            <div>
+                <div class="text-gray-500 text-sm">Progreso</div>
+                <div class="font-semibold" x-text="completedCount + '/' + totalCount + ' entregas'"></div>
+                <!-- Barra de progreso -->
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                    <div class="bg-green-500 h-2 rounded-full transition-all" 
+                         :style="'width: ' + (completedCount / totalCount * 100) + '%'"></div>
+                </div>
+            </div>
+        </div>
+        {% if sheet.notes %}
+        <div class="mt-4 pt-4 border-t">
+            <div class="text-gray-500 text-sm">Notas</div>
+            <div>{{ sheet.notes }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Banner Cerrar Ruta (cuando todas están completadas) -->
+    <div x-show="completedCount === totalCount && '{{ sheet.status }}' === 'en_ruta'" 
+         x-transition
+         class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h3 class="font-semibold text-green-800 text-lg">🎉 ¡Todas las entregas completadas!</h3>
+                <p class="text-green-700">Puedes cerrar la ruta y ver el resumen final.</p>
+            </div>
+            <button @click="closeRoute()" 
+                    class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2">
+                ✅ Cerrar Ruta
+            </button>
+        </div>
+    </div>
+
+    <!-- Resumen Final (cuando está completado) -->
+    {% if sheet.status == 'completado' %}
+    <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 mb-6 text-white">
+        <h3 class="text-xl font-bold mb-4">📊 Resumen de Ruta Completada</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white/20 rounded-lg p-3">
+                <div class="text-green-100 text-sm">Entregados</div>
+                <div class="text-2xl font-bold">{{ sales_data|selectattr('delivery_status', 'eq', 'entregado')|list|length }}</div>
+            </div>
+            <div class="bg-white/20 rounded-lg p-3">
+                <div class="text-green-100 text-sm">Con Observaciones</div>
+                <div class="text-2xl font-bold">{{ sales_data|selectattr('delivery_status', 'eq', 'con_observaciones')|list|length }}</div>
+            </div>
+            <div class="bg-white/20 rounded-lg p-3">
+                <div class="text-green-100 text-sm">Total Cobrado</div>
+                <div class="text-2xl font-bold">${{ "{:,.0f}".format(sheet.total_amount) }}</div>
+            </div>
+            <div class="bg-white/20 rounded-lg p-3">
+                <div class="text-green-100 text-sm">Tasa de Éxito</div>
+                <div class="text-2xl font-bold">
+                    {{ ((sales_data|selectattr('delivery_status', 'eq', 'entregado')|list|length) / sales_data|length * 100)|round|int }}%
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lista de Entregas -->
+    <div class="space-y-4">
+        {% for sale in sales_data %}
+        <div class="bg-white rounded-lg shadow overflow-hidden" 
+             :class="{ 'border-l-4 border-green-500': sales['{{ sale.id }}']?.delivered }">
+            
+            <!-- Header de la entrega -->
+            <div class="p-4 flex items-start justify-between">
+                <div class="flex items-start gap-4">
+                    <div class="bg-blue-100 text-blue-800 w-10 h-10 rounded-full flex items-center justify-center font-bold">
+                        {{ sale.order }}
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-lg">{{ sale.customer_name }}</h3>
+                        <p class="text-gray-600">{{ sale.address or 'Sin dirección' }}</p>
+                        <p class="text-gray-500 text-sm">📞 {{ sale.phone or 'Sin teléfono' }}</p>
+                        <button @click="editAddress('{{ sale.id }}', '{{ sale.address or '' }}', '{{ sale.phone or '' }}')" 
+                                class="text-blue-600 text-xs hover:underline mt-1">
+                            ✏️ Editar dirección
+                        </button>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="font-bold text-lg">${{ "{:,.0f}".format(sale.total) }}</div>
+                    {% if sale.payment_status == 'pagado' %}
+                    <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">✓ Pagado</span>
+                    {% elif sale.payment_status == 'parcial' %}
+                    <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">Parcial</span>
+                    {% else %}
+                    <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">Por Cobrar</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Productos -->
+            <div class="px-4 pb-2">
+                <div class="text-sm text-gray-600">
+                    <strong>Productos:</strong>
+                    {% for item in sale.products %}
+                    {{ item.name }} x{{ item.qty }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Botones de Mapas -->
+            {% if sale.address %}
+            <div class="px-4 pb-3 flex flex-wrap gap-2">
+                <a href="{{ sale.maps_google }}" target="_blank" 
+                   class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm hover:bg-blue-100">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    </svg>
+                    Google Maps
+                </a>
+                <a href="{{ sale.maps_waze }}" target="_blank" 
+                   class="inline-flex items-center gap-1 bg-cyan-50 text-cyan-700 px-3 py-1.5 rounded-lg text-sm hover:bg-cyan-100">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93s3.06-7.44 7-7.93v15.86zm2 0V4.07c3.94.49 7 3.85 7 7.93s-3.06 7.44-7 7.93z"/>
+                    </svg>
+                    Waze
+                </a>
+                <a href="{{ sale.maps_apple }}" target="_blank" 
+                   class="inline-flex items-center gap-1 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-200">
+                    🗺️ Apple Maps
+                </a>
+            </div>
+            {% endif %}
+            
+            <!-- Observaciones -->
+            {% if sale.observations %}
+            <div class="px-4 pb-3">
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-2 text-sm">
+                    <strong>📝 Observaciones:</strong> {{ sale.observations }}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Acciones de entrega -->
+            <div class="bg-gray-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-600">Estado:</span>
+                    {% if sale.delivery_status == 'pendiente' %}
+                    <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm">⏳ Pendiente</span>
+                    {% elif sale.delivery_status == 'en_preparacion' %}
+                    <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-sm">📦 En Preparación</span>
+                    {% elif sale.delivery_status == 'en_transito' %}
+                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">🚚 En Tránsito</span>
+                    {% elif sale.delivery_status == 'entregado' %}
+                    <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">✅ Entregado</span>
+                    {% elif sale.delivery_status == 'con_observaciones' %}
+                    <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-sm">⚠️ Con Observaciones</span>
+                    {% endif %}
+                </div>
+                
+                {% if sheet.status in ['pendiente', 'en_ruta'] %}
+                <div class="flex gap-2">
+                    {% if sale.delivery_status not in ['entregado', 'con_observaciones', 'cancelado'] %}
+                    <button @click="markDelivered('{{ sale.id }}')" 
+                            class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">
+                        ✓ Marcar Entregado
+                    </button>
+                    <button @click="showObservationModal('{{ sale.id }}')" 
+                            class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1.5 rounded text-sm">
+                        ⚠️ Con Observación
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Modal Observaciones -->
+    <div x-show="showObsModal" 
+         x-transition
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         @click.self="showObsModal = false">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md m-4">
+            <div class="p-4 border-b">
+                <h3 class="text-lg font-semibold">Agregar Observación</h3>
+            </div>
+            <div class="p-4">
+                <textarea x-model="obsText" rows="3" 
+                          placeholder="Describe el problema o la observación..."
+                          class="w-full border rounded-lg px-3 py-2"></textarea>
+            </div>
+            <div class="p-4 border-t flex justify-end gap-2">
+                <button @click="showObsModal = false" class="px-4 py-2 border rounded-lg">Cancelar</button>
+                <button @click="submitObservation()" class="px-4 py-2 bg-yellow-500 text-white rounded-lg">
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Dirección -->
+    <div x-show="showAddressModal" 
+         x-transition
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         @click.self="showAddressModal = false">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md m-4">
+            <div class="p-4 border-b">
+                <h3 class="text-lg font-semibold">✏️ Editar Dirección</h3>
+            </div>
+            <div class="p-4 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Dirección completa</label>
+                    <textarea x-model="editAddressText" rows="2" 
+                              placeholder="Calle, número, depto, ciudad..."
+                              class="w-full border rounded-lg px-3 py-2"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                    <input type="text" x-model="editPhoneText" 
+                           placeholder="+56 9 1234 5678"
+                           class="w-full border rounded-lg px-3 py-2">
+                </div>
+            </div>
+            <div class="p-4 border-t flex justify-end gap-2">
+                <button @click="showAddressModal = false" class="px-4 py-2 border rounded-lg">Cancelar</button>
+                <button @click="saveAddress()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function sheetApp() {
+    const salesData = {{ sales_data | tojson | safe }};
+    
+    return {
+        sales: {},
+        showObsModal: false,
+        showAddressModal: false,
+        obsText: '',
+        editAddressText: '',
+        editPhoneText: '',
+        currentSaleId: null,
+        totalCount: salesData.length,
+        
+        get completedCount() {
+            return salesData.filter(s => 
+                s.delivery_status === 'entregado' || 
+                s.delivery_status === 'con_observaciones'
+            ).length;
+        },
+        
+        async startRoute() {
+            if (!confirm('¿Iniciar ruta de reparto? Las ventas pasarán a estado "En Tránsito"')) return;
+            
+            try {
+                const response = await fetch('/delivery/api/sheets/{{ sheet.id }}', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'en_ruta' })
+                });
+                
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                alert('Error al iniciar ruta');
+            }
+        },
+        
+        async closeRoute() {
+            if (!confirm('¿Cerrar la ruta? Esto marcará la hoja como completada.')) return;
+            
+            try {
+                const response = await fetch('/delivery/api/sheets/{{ sheet.id }}', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'completado' })
+                });
+                
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                alert('Error al cerrar ruta');
+            }
+        },
+        
+        async markDelivered(saleId) {
+            try {
+                const response = await fetch(`/delivery/api/sheets/{{ sheet.id }}/update-sale/${saleId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ delivery_status: 'entregado' })
+                });
+                
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                alert('Error al actualizar');
+            }
+        },
+        
+        showObservationModal(saleId) {
+            this.currentSaleId = saleId;
+            this.obsText = '';
+            this.showObsModal = true;
+        },
+        
+        editAddress(saleId, currentAddress, currentPhone) {
+            this.currentSaleId = saleId;
+            this.editAddressText = currentAddress;
+            this.editPhoneText = currentPhone;
+            this.showAddressModal = true;
+        },
+        
+        async saveAddress() {
+            try {
+                const response = await fetch(`/delivery/api/sheets/{{ sheet.id }}/update-sale/${this.currentSaleId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        address: this.editAddressText,
+                        phone: this.editPhoneText
+                    })
+                });
+                
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Error al guardar');
+                }
+            } catch (error) {
+                alert('Error de conexión');
+            }
+        },
+        
+        async submitObservation() {
+            if (!this.obsText.trim()) {
+                alert('Escribe una observación');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/delivery/api/sheets/{{ sheet.id }}/update-sale/${this.currentSaleId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        delivery_status: 'con_observaciones',
+                        delivery_observations: this.obsText
+                    })
+                });
+                
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                alert('Error al guardar');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

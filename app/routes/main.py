@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, g, session, redirect, url_for
+from flask import Blueprint, render_template, request, g, session, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from app.models import Product, Sale, SaleItem, ActivityLog
 from bson import ObjectId
@@ -118,8 +118,8 @@ def dashboard():
                     "quantity": item["total_quantity"],
                     "revenue": item["total_revenue"]
                 })
-            except:
-                pass
+            except Exception as e:
+                current_app.logger.debug(f'Producto {item["_id"]} no encontrado: {e}')
     except Exception as e:
         print(f"Error getting top products: {e}")
     
@@ -141,8 +141,8 @@ def dashboard():
                     "module": log.module,
                     "time": log.created_at.strftime("%H:%M") if log.created_at else ""
                 })
-        except:
-            pass
+        except Exception as e:
+            current_app.logger.debug(f'Error cargando actividad reciente: {e}')
     
     # 6. Pending orders count (for warehouse)
     pending_orders = 0
@@ -150,8 +150,8 @@ def dashboard():
         from app.models import InboundOrder
         try:
             pending_orders = InboundOrder.objects(tenant=tenant, status="pending").count()
-        except:
-            pass
+        except Exception as e:
+            current_app.logger.debug(f'Error contando pedidos pendientes: {e}')
 
     stats = {
         "total_sales": total_sales,

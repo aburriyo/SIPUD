@@ -108,7 +108,7 @@ def get_customer_detail(customer_id):
     
     try:
         customer = ShopifyCustomer.objects.get(id=ObjectId(customer_id), tenant=tenant)
-    except:
+    except Exception:
         return jsonify({'error': 'Cliente no encontrado'}), 404
     
     # Get recent orders
@@ -408,7 +408,7 @@ def export_excel():
 @bp.route('/api/customers', methods=['POST'])
 @login_required
 @permission_required('customers', 'create')
-def create_customer():
+def api_create_customer_v2():
     """Create a manual customer"""
     tenant = g.current_tenant
     data = request.get_json()
@@ -442,7 +442,7 @@ def create_customer():
 @bp.route('/api/customers/import', methods=['POST'])
 @login_required
 @permission_required('customers', 'sync')
-def import_customers():
+def api_import_customers_v2():
     """Import customers from Excel file"""
     tenant = g.current_tenant
     
@@ -533,73 +533,84 @@ def sync_shopify():
         'errors': []
     }
     
+    # Flag para saber si debemos extraer clientes de órdenes
+    extract_customers_from_orders = False
+    
     try:
-        # Sync Customers
+        # Intentar Sync Customers (puede fallar si no hay scope read_customers)
         customers_url = f'{SHOPIFY_BASE_URL}/customers.json'
-        page_info = None
+        response = requests.get(customers_url, headers=headers, params={'limit': 1})
         
-        while True:
-            params = {'limit': 250}
-            if page_info:
-                params['page_info'] = page_info
+        if response.status_code == 403:
+            # No tenemos permiso para leer clientes directamente
+            # Los extraeremos de las órdenes
+            extract_customers_from_orders = True
+            stats['errors'].append('Sin permiso read_customers - extrayendo clientes desde órdenes')
+        elif response.status_code == 200:
+            # Sí tenemos acceso, sincronizar normalmente
+            page_info = None
             
-            response = requests.get(customers_url, headers=headers, params=params)
-            
-            if response.status_code != 200:
-                stats['errors'].append(f'Error al obtener clientes: {response.status_code}')
-                break
-            
-            data = response.json()
-            customers_data = data.get('customers', [])
-            
-            if not customers_data:
-                break
-            
-            # Process customers
-            for customer_data in customers_data:
-                try:
-                    shopify_id = str(customer_data['id'])
-                    
-                    # Get default address
-                    default_address = customer_data.get('default_address') or {}
-                    
-                    # Upsert customer
-                    customer = ShopifyCustomer.objects(shopify_id=shopify_id, tenant=tenant).first()
-                    if not customer:
-                        customer = ShopifyCustomer(shopify_id=shopify_id, tenant=tenant)
-                    
-                    customer.name = f"{customer_data.get('first_name', '')} {customer_data.get('last_name', '')}".strip()
-                    customer.email = customer_data.get('email')
-                    customer.phone = customer_data.get('phone') or default_address.get('phone')
-                    customer.address_city = default_address.get('city')
-                    customer.address_province = default_address.get('province')
-                    customer.address_country = default_address.get('country')
-                    customer.tags = customer_data.get('tags')
-                    customer.total_orders = customer_data.get('orders_count', 0)
-                    customer.total_spent = float(customer_data.get('total_spent', 0))
-                    
-                    # Parse dates
-                    if customer_data.get('created_at'):
-                        customer.created_at = datetime.fromisoformat(customer_data['created_at'].replace('Z', '+00:00'))
-                    
-                    customer.save()
-                    stats['customers_synced'] += 1
-                    
-                except Exception as e:
-                    stats['errors'].append(f'Error al procesar cliente {customer_data.get("id")}: {str(e)}')
-            
-            # Check for next page
-            link_header = response.headers.get('Link', '')
-            if 'rel="next"' in link_header:
-                # Extract page_info from link header
-                import re
-                match = re.search(r'page_info=([^&>]+)', link_header)
-                if match:
-                    page_info = match.group(1)
+            while True:
+                params = {'limit': 250}
+                if page_info:
+                    params['page_info'] = page_info
+                
+                response = requests.get(customers_url, headers=headers, params=params)
+                
+                if response.status_code != 200:
+                    stats['errors'].append(f'Error al obtener clientes: {response.status_code}')
+                    break
+                
+                data = response.json()
+                customers_data = data.get('customers', [])
+                
+                if not customers_data:
+                    break
+                
+                # Process customers
+                for customer_data in customers_data:
+                    try:
+                        shopify_id = str(customer_data['id'])
+                        
+                        # Get default address
+                        default_address = customer_data.get('default_address') or {}
+                        
+                        # Upsert customer
+                        customer = ShopifyCustomer.objects(shopify_id=shopify_id, tenant=tenant).first()
+                        if not customer:
+                            customer = ShopifyCustomer(shopify_id=shopify_id, tenant=tenant)
+                        
+                        customer.name = f"{customer_data.get('first_name', '')} {customer_data.get('last_name', '')}".strip()
+                        customer.email = customer_data.get('email')
+                        customer.phone = customer_data.get('phone') or default_address.get('phone')
+                        customer.address_city = default_address.get('city')
+                        customer.address_province = default_address.get('province')
+                        customer.address_country = default_address.get('country')
+                        customer.tags = customer_data.get('tags')
+                        customer.total_orders = customer_data.get('orders_count', 0)
+                        customer.total_spent = float(customer_data.get('total_spent', 0))
+                        
+                        # Parse dates
+                        if customer_data.get('created_at'):
+                            customer.created_at = datetime.fromisoformat(customer_data['created_at'].replace('Z', '+00:00'))
+                        
+                        customer.save()
+                        stats['customers_synced'] += 1
+                        
+                    except Exception as e:
+                        stats['errors'].append(f'Error al procesar cliente {customer_data.get("id")}: {str(e)}')
+                
+                # Check for next page
+                link_header = response.headers.get('Link', '')
+                if 'rel="next"' in link_header:
+                    import re
+                    match = re.search(r'page_info=([^&>]+)', link_header)
+                    if match:
+                        page_info = match.group(1)
+                    else:
+                        break
                 else:
                     break
-            else:
-                break
         
         # Sync Orders
         orders_url = f'{SHOPIFY_BASE_URL}/orders.json'
@@ -627,11 +638,32 @@ def sync_shopify():
                 try:
                     shopify_id = str(order_data['id'])
                     
-                    # Find customer
+                    # Find or create customer from order data
                     customer = None
                     if order_data.get('customer'):
                         customer_shopify_id = str(order_data['customer']['id'])
                         customer = ShopifyCustomer.objects(shopify_id=customer_shopify_id, tenant=tenant).first()
+                        
+                        # Si no existe y debemos extraer de órdenes, crear el cliente
+                        if not customer and extract_customers_from_orders:
+                            customer_data = order_data['customer']
+                            shipping_addr = order_data.get('shipping_address') or {}
+                            
+                            customer = ShopifyCustomer(
+                                shopify_id=customer_shopify_id,
+                                tenant=tenant,
+                                source='shopify',
+                                name=f"{customer_data.get('first_name', '')} {customer_data.get('last_name', '')}".strip() or 'Cliente Shopify',
+                                email=customer_data.get('email') or order_data.get('email'),
+                                phone=shipping_addr.get('phone') or customer_data.get('phone'),
+                                address_city=shipping_addr.get('city'),
+                                address_province=shipping_addr.get('province'),
+                                address_country=shipping_addr.get('country', 'Chile'),
+                                created_at=datetime.utcnow(),
+                                updated_at=datetime.utcnow()
+                            )
+                            customer.save()
+                            stats['customers_synced'] += 1
                     
                     # Upsert order
                     order = ShopifyOrder.objects(shopify_id=shopify_id, tenant=tenant).first()
@@ -647,10 +679,13 @@ def sync_shopify():
                     order.financial_status = order_data.get('financial_status')
                     order.fulfillment_status = order_data.get('fulfillment_status')
                     
-                    # Shipping address
+                    # Shipping address (captura completa)
                     shipping_address = order_data.get('shipping_address') or {}
+                    order.shipping_address1 = shipping_address.get('address1')
+                    order.shipping_address2 = shipping_address.get('address2')
                     order.shipping_city = shipping_address.get('city')
                     order.shipping_province = shipping_address.get('province')
+                    order.shipping_phone = shipping_address.get('phone')
                     order.note = order_data.get('note')
                     
                     # Line items
@@ -830,6 +865,7 @@ def sync_shopify():
                 customer_name=s_order.customer_name or 'Cliente Shopify',
                 address=address,
                 sale_type='con_despacho',
+                sales_channel='shopify',  # NEW: mark as Shopify origin
                 delivery_status='entregado' if s_order.fulfillment_status == 'fulfilled' else 'pendiente',
                 payment_status='pagado' if s_order.financial_status == 'paid' else 'pendiente',
                 date_created=s_order.created_at or datetime.utcnow(),
@@ -863,3 +899,180 @@ def sync_shopify():
         stats['errors'].append(f'Error en sync ventas: {str(e)}')
     
     return jsonify(stats)
+
+
+@bp.route('/api/customers/sync/preview', methods=['GET'])
+@login_required
+@permission_required('customers', 'sync')
+def sync_shopify_preview():
+    """
+    Preview Shopify sync changes without applying them.
+    Returns what WOULD be created/updated if sync is executed.
+    """
+    tenant = g.current_tenant
+    
+    headers = {
+        'X-Shopify-Access-Token': SHOPIFY_TOKEN,
+        'Content-Type': 'application/json'
+    }
+    
+    preview = {
+        'products': {'new': [], 'update': [], 'unchanged': 0},
+        'customers': {'new': [], 'update': [], 'unchanged': 0},
+        'orders': {'new': [], 'unchanged': 0},
+        'errors': []
+    }
+    
+    try:
+        # ==========================================
+        # PREVIEW PRODUCTS
+        # ==========================================
+        from app.models import Product
+        from decimal import Decimal
+        import re as re_mod
+        
+        products_url = f'{SHOPIFY_BASE_URL}/products.json'
+        resp = requests.get(products_url, headers=headers, params={'limit': 250})
+        
+        if resp.status_code == 200:
+            products_data = resp.json().get('products', [])
+            
+            for p_data in products_data:
+                shopify_id = str(p_data['id'])
+                variants = p_data.get('variants', [])
+                variant = variants[0] if variants else {}
+                sku = variant.get('sku', '')
+                price = float(variant.get('price', '0'))
+                inv_qty = variant.get('inventory_quantity', 0)
+                name = p_data.get('title', 'Sin nombre')
+                
+                # Find existing product
+                existing = None
+                if sku:
+                    existing = Product.objects(sku=sku, tenant=tenant).first()
+                if not existing:
+                    existing = Product.objects(shopify_id=shopify_id, tenant=tenant).first()
+                
+                if existing:
+                    # Check if there are changes
+                    changes = []
+                    if existing.name != name:
+                        changes.append(f'nombre: {existing.name} → {name}')
+                    if float(existing.base_price or 0) != price:
+                        changes.append(f'precio: ${existing.base_price} → ${price}')
+                    if existing.total_stock != inv_qty:
+                        changes.append(f'stock: {existing.total_stock} → {inv_qty}')
+                    
+                    if changes:
+                        preview['products']['update'].append({
+                            'sku': sku or f"SHP-{shopify_id[-6:]}",
+                            'name': name,
+                            'price': price,
+                            'stock': inv_qty,
+                            'changes': changes
+                        })
+                    else:
+                        preview['products']['unchanged'] += 1
+                else:
+                    preview['products']['new'].append({
+                        'sku': sku or f"SHP-{shopify_id[-6:]}",
+                        'name': name,
+                        'price': price,
+                        'stock': inv_qty
+                    })
+        else:
+            preview['errors'].append(f'Error al obtener productos: {resp.status_code}')
+        
+        # ==========================================
+        # PREVIEW CUSTOMERS
+        # ==========================================
+        customers_url = f'{SHOPIFY_BASE_URL}/customers.json'
+        resp = requests.get(customers_url, headers=headers, params={'limit': 250})
+        
+        if resp.status_code == 200:
+            customers_data = resp.json().get('customers', [])
+            
+            for c_data in customers_data:
+                shopify_id = str(c_data['id'])
+                name = f"{c_data.get('first_name', '')} {c_data.get('last_name', '')}".strip()
+                email = c_data.get('email', '')
+                
+                existing = ShopifyCustomer.objects(shopify_id=shopify_id, tenant=tenant).first()
+                
+                if existing:
+                    changes = []
+                    if existing.name != name:
+                        changes.append(f'nombre')
+                    if existing.email != email:
+                        changes.append(f'email')
+                    
+                    if changes:
+                        preview['customers']['update'].append({
+                            'name': name,
+                            'email': email,
+                            'changes': changes
+                        })
+                    else:
+                        preview['customers']['unchanged'] += 1
+                else:
+                    preview['customers']['new'].append({
+                        'name': name,
+                        'email': email
+                    })
+        else:
+            preview['errors'].append(f'Error al obtener clientes: {resp.status_code}')
+        
+        # ==========================================
+        # PREVIEW ORDERS
+        # ==========================================
+        from app.models import Sale
+        
+        orders_url = f'{SHOPIFY_BASE_URL}/orders.json'
+        resp = requests.get(orders_url, headers=headers, params={'limit': 250, 'status': 'any'})
+        
+        if resp.status_code == 200:
+            orders_data = resp.json().get('orders', [])
+            
+            for o_data in orders_data:
+                shopify_id = str(o_data['id'])
+                order_number = o_data.get('order_number')
+                
+                # Check if already synced to Sale
+                existing_sale = Sale.objects(shopify_order_id=shopify_id, tenant=tenant).first()
+                existing_order = ShopifyOrder.objects(shopify_id=shopify_id, tenant=tenant).first()
+                
+                if not existing_sale:
+                    preview['orders']['new'].append({
+                        'order_number': order_number,
+                        'customer': o_data.get('customer', {}).get('first_name', '') + ' ' + o_data.get('customer', {}).get('last_name', ''),
+                        'total': float(o_data.get('total_price', 0)),
+                        'status': o_data.get('financial_status')
+                    })
+                else:
+                    preview['orders']['unchanged'] += 1
+        else:
+            preview['errors'].append(f'Error al obtener órdenes: {resp.status_code}')
+        
+    except Exception as e:
+        preview['errors'].append(f'Error general: {str(e)}')
+    
+    # Calculate summary
+    preview['summary'] = {
+        'products_new': len(preview['products']['new']),
+        'products_update': len(preview['products']['update']),
+        'products_unchanged': preview['products']['unchanged'],
+        'customers_new': len(preview['customers']['new']),
+        'customers_update': len(preview['customers']['update']),
+        'customers_unchanged': preview['customers']['unchanged'],
+        'orders_new': len(preview['orders']['new']),
+        'orders_unchanged': preview['orders']['unchanged'],
+        'has_changes': (
+            len(preview['products']['new']) > 0 or
+            len(preview['products']['update']) > 0 or
+            len(preview['customers']['new']) > 0 or
+            len(preview['customers']['update']) > 0 or
+            len(preview['orders']['new']) > 0
+        )
+    }
+    
+    return jsonify(preview)

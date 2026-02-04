@@ -1,6 +1,7 @@
-from flask import Blueprint, jsonify, request, g, abort
+from flask import Blueprint, jsonify, request, g, abort, current_app
 from flask_login import current_user, login_required
-from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment, Tenant, Wastage
+from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment, Tenant, Wastage, User
+from app.extensions import limiter
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from bson import ObjectId
@@ -8,6 +9,15 @@ from mongoengine import DoesNotExist
 from functools import wraps
 
 bp = Blueprint('api', __name__, url_prefix='/api')
+
+# Exempt authenticated routes from strict rate limiting
+# (they still have global limits from extensions.py)
+@bp.before_request
+def exempt_authenticated_users():
+    """Skip strict rate limits for authenticated users"""
+    if current_user.is_authenticated:
+        # Mark request as exempt from per-route limits
+        request.environ['RATELIMIT_EXEMPT'] = True
 
 
 def permission_required(module, action='view'):
@@ -395,6 +405,10 @@ def get_sales():
             'customer': s.customer_name,
             'address': s.address,
             'status': s.status,
+            'sale_type': s.sale_type or 'con_despacho',
+            'sales_channel': s.sales_channel or 'manual',  # NEW
+            'delivery_status': s.delivery_status or 'pendiente',
+            'payment_status': s.payment_status or 'pendiente',
             'items': items,
             'total': total_sale,
             'payment_method': s.payment_method,
@@ -596,6 +610,7 @@ def get_sale(id):
 
         # Tipo de venta
         'sale_type': sale.sale_type or 'con_despacho',
+        'sales_channel': sale.sales_channel or 'manual',  # NEW
 
         # Delivery
         'delivery_status': sale.delivery_status or 'pendiente',
@@ -661,6 +676,7 @@ def create_sale():
             address=data.get('address', ''),
             phone=data.get('phone', ''),
             sale_type=sale_type,
+            sales_channel=data.get('sales_channel', 'manual'),  # NEW: track origin
             delivery_status=delivery_status,
             delivery_observations=data.get('delivery_observations', ''),
             date_delivered=date_delivered,
@@ -801,6 +817,23 @@ def create_sale():
             new_sale.payment_status = new_sale.computed_payment_status
             new_sale.save()
 
+        # Tarea 4: Ventas en local con pago completo automático
+        # Si es venta en local y se marcó auto_complete_payment (sin pago inicial explícito)
+        elif sale_type == 'en_local' and data.get('auto_complete_payment'):
+            # Crear pago por el total
+            payment = Payment(
+                sale=new_sale,
+                tenant=tenant,
+                amount=total,
+                payment_via=data.get('payment_via', 'efectivo'),
+                payment_reference=data.get('payment_reference', ''),
+                notes='Pago completo en local',
+                created_by=current_user
+            )
+            payment.save()
+            new_sale.payment_status = 'pagado'
+            new_sale.save()
+
         # Log activity
         ActivityLog.log(
             user=current_user,
@@ -820,8 +853,8 @@ def create_sale():
         if 'new_sale' in locals() and new_sale.id:
             try:
                 new_sale.delete()
-            except:
-                pass
+            except Exception as del_err:
+                current_app.logger.error(f'Error eliminando venta fallida: {del_err}')
         return jsonify({'error': str(e)}), 500
 
 
@@ -1057,4 +1090,240 @@ def get_fleet_vehicle(id):
             'scheduled_date': m.scheduled_date.isoformat() if m.scheduled_date else None,
             'odometer': m.odometer_reading
         } for m in upcoming]
+    })
+
+
+# ============================================
+# WEBHOOK API - External Integrations
+# ============================================
+import os
+
+def validate_webhook_token():
+    """Validate webhook token from header"""
+    token = request.headers.get('X-Webhook-Token') or request.headers.get('Authorization', '').replace('Bearer ', '')
+    expected = os.environ.get('SIPUD_WEBHOOK_TOKEN', '')
+    if not expected or not token:
+        return False
+    return token == expected
+
+
+def get_system_user(tenant):
+    """Get or create system user for webhook operations"""
+    system_user = User.objects(username='sistema', tenant=tenant).first()
+    if not system_user:
+        # Use first admin as fallback
+        system_user = User.objects(role='admin', tenant=tenant).first()
+    return system_user
+
+
+@bp.route('/sales/webhook', methods=['POST'])
+@limiter.limit("10 per minute")
+@limiter.limit("100 per hour")
+def webhook_create_sale():
+    """
+    Webhook endpoint for external integrations (ManyChat, Google Sheets, etc.)
+    
+    Rate limits: 10/min, 100/hour per IP
+    
+    Headers:
+        X-Webhook-Token: <token>  OR  Authorization: Bearer <token>
+    
+    Body:
+        {
+            "customer": "Juan Pérez",
+            "phone": "+56912345678",
+            "address": "Av. Principal 123",
+            "items": [
+                {"sku": "ARROZ-5KG", "quantity": 2},
+                {"name": "Aceite Maravilla 1L", "quantity": 1}
+            ],
+            "notes": "Entregar después de las 14:00"
+        }
+    
+    Returns:
+        201: Sale created successfully
+        400: Validation error (missing data, insufficient stock)
+        401: Invalid or missing token
+        404: Product not found
+        429: Rate limit exceeded
+    """
+    # Validate token
+    if not validate_webhook_token():
+        return jsonify({'error': 'Token inválido o no proporcionado'}), 401
+    
+    tenant = g.current_tenant
+    data = request.get_json()
+    
+    # Basic validation
+    if not data:
+        return jsonify({'error': 'Body JSON requerido'}), 400
+    
+    customer_name = data.get('customer', '').strip()
+    if not customer_name:
+        return jsonify({'error': 'Campo "customer" es requerido'}), 400
+    
+    items_data = data.get('items', [])
+    if not items_data:
+        return jsonify({'error': 'Se requiere al menos un item'}), 400
+    
+    # Get system user for logging
+    system_user = get_system_user(tenant)
+    if not system_user:
+        return jsonify({'error': 'No hay usuario administrador configurado'}), 500
+    
+    # Track modified lots for rollback
+    modified_lots = []
+    
+    def rollback_stock():
+        for lot, original_qty in modified_lots:
+            lot.quantity_current = original_qty
+            lot.save()
+    
+    try:
+        # Create sale
+        new_sale = Sale(
+            customer_name=customer_name,
+            address=data.get('address', ''),
+            phone=data.get('phone', ''),
+            sale_type='con_despacho',  # Webhook sales are always delivery
+            sales_channel='whatsapp',  # Mark as WhatsApp origin
+            delivery_status='pendiente',
+            payment_status='pendiente',
+            status='pending',
+            tenant=tenant
+        )
+        new_sale.save()
+        
+        processed_items = []
+        errors = []
+        
+        for item_data in items_data:
+            sku = item_data.get('sku', '').strip()
+            name = item_data.get('name', '').strip()
+            quantity = int(item_data.get('quantity', 1))
+            
+            if quantity <= 0:
+                errors.append(f'Cantidad inválida para item: {sku or name}')
+                continue
+            
+            # Find product by SKU or name
+            product = None
+            if sku:
+                product = Product.objects(sku__iexact=sku, tenant=tenant).first()
+            if not product and name:
+                product = Product.objects(name__iexact=name, tenant=tenant).first()
+                if not product:
+                    # Try partial match
+                    product = Product.objects(name__icontains=name, tenant=tenant).first()
+            
+            if not product:
+                errors.append(f'Producto no encontrado: {sku or name}')
+                continue
+            
+            # Validate stock
+            if product.total_stock < quantity:
+                errors.append(f'Stock insuficiente para {product.name}: disponible {product.total_stock}, solicitado {quantity}')
+                continue
+            
+            # Deduct stock (FIFO)
+            remaining = quantity
+            available_lots = sorted(
+                [l for l in product.lots if l.quantity_current > 0],
+                key=lambda x: x.created_at
+            )
+            
+            for lot in available_lots:
+                if remaining <= 0:
+                    break
+                modified_lots.append((lot, lot.quantity_current))
+                deduct = min(lot.quantity_current, remaining)
+                lot.quantity_current -= deduct
+                remaining -= deduct
+                lot.save()
+            
+            if remaining > 0:
+                errors.append(f'Error de consistencia de inventario para {product.name}')
+                continue
+            
+            # Create sale item
+            sale_item = SaleItem(
+                sale=new_sale,
+                product=product,
+                quantity=quantity,
+                unit_price=product.base_price or 0
+            )
+            sale_item.save()
+            
+            processed_items.append({
+                'product': product.name,
+                'sku': product.sku,
+                'quantity': quantity,
+                'unit_price': float(product.base_price or 0)
+            })
+        
+        # If no items were processed successfully, rollback and delete sale
+        if not processed_items:
+            rollback_stock()
+            new_sale.delete()
+            return jsonify({
+                'error': 'No se pudo procesar ningún item',
+                'details': errors
+            }), 400
+        
+        # Calculate total
+        total = sum(item['quantity'] * item['unit_price'] for item in processed_items)
+        
+        # Log activity
+        ActivityLog.log(
+            user=system_user,
+            action='create',
+            module='sales',
+            description=f'[Webhook] Venta para "{customer_name}" - {len(processed_items)} items, total ${total:,.0f}',
+            target_id=str(new_sale.id),
+            target_type='Sale',
+            details={
+                'source': 'webhook',
+                'channel': 'whatsapp',
+                'items': processed_items,
+                'errors': errors if errors else None
+            },
+            request=request,
+            tenant=tenant
+        )
+        
+        response = {
+            'success': True,
+            'message': 'Venta creada exitosamente',
+            'sale_id': str(new_sale.id),
+            'customer': customer_name,
+            'total': total,
+            'items_processed': len(processed_items),
+            'items': processed_items
+        }
+        
+        # Include warnings if some items failed
+        if errors:
+            response['warnings'] = errors
+        
+        return jsonify(response), 201
+        
+    except Exception as e:
+        rollback_stock()
+        if 'new_sale' in locals() and new_sale.id:
+            try:
+                new_sale.delete()
+            except Exception as del_err:
+                current_app.logger.error(f'Error eliminando venta webhook fallida: {del_err}')
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+
+
+@bp.route('/sales/webhook/test', methods=['GET'])
+@limiter.limit("30 per minute")
+def webhook_test():
+    """Test endpoint to verify webhook is accessible (no auth required)"""
+    return jsonify({
+        'status': 'ok',
+        'message': 'Webhook endpoint disponible',
+        'usage': 'POST /api/sales/webhook con header X-Webhook-Token',
+        'rate_limits': '10/min, 100/hour'
     })

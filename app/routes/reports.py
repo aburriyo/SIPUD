@@ -82,7 +82,7 @@ def export_sales_excel():
             try:
                 if len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
-            except:
+            except (TypeError, AttributeError):  # cell.value puede ser None
                 pass
         adjusted_width = max_length + 2
         ws.column_dimensions[column].width = adjusted_width
@@ -153,7 +153,7 @@ def export_wastage_excel():
             try:
                 if len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
-            except:
+            except (TypeError, AttributeError):  # cell.value puede ser None
                 pass
         adjusted_width = min(50, max_length + 2)
         ws.column_dimensions[column].width = adjusted_width
@@ -245,7 +245,7 @@ def export_inventory_excel():
             try:
                 if len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
-            except:
+            except (TypeError, AttributeError):  # cell.value puede ser None
                 pass
         adjusted_width = min(40, max_length + 2)
         ws.column_dimensions[column].width = adjusted_width
@@ -327,7 +327,7 @@ def export_orders_excel():
             try:
                 if len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
-            except:
+            except (TypeError, AttributeError):  # cell.value puede ser None
                 pass
         adjusted_width = min(40, max_length + 2)
         ws.column_dimensions[column].width = adjusted_width

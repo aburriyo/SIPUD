@@ -470,6 +470,16 @@ def sync_shopify(tenant_slug='puerto-distribucion'):
     shopify_orders = ShopifyOrder.objects(tenant=tenant)
     
     for s_order in shopify_orders:
+        # Construir dirección completa
+        addr_parts = [
+            s_order.shipping_address1 or '',
+            s_order.shipping_address2 or '',
+            s_order.shipping_city or '',
+            s_order.shipping_province or ''
+        ]
+        full_address = ', '.join(p for p in addr_parts if p)
+        phone = s_order.shipping_phone or ''
+        
         # Check if sale already exists for this Shopify order
         existing_sale = Sale.objects(
             tenant=tenant,
@@ -477,19 +487,23 @@ def sync_shopify(tenant_slug='puerto-distribucion'):
         ).first()
         
         if existing_sale:
+            # Update address and phone if missing or incomplete
+            updated = False
+            if not existing_sale.address or len(existing_sale.address) < len(full_address):
+                existing_sale.address = full_address
+                updated = True
+            if not existing_sale.phone and phone:
+                existing_sale.phone = phone
+                updated = True
+            if updated:
+                existing_sale.save()
+                print(f"      ~ Actualizada venta #{s_order.order_number}: {full_address[:50]}...")
             sales_skipped += 1
             continue
         
         # Create new Sale from Shopify order
         try:
-            # Construir dirección completa
-            addr_parts = [
-                s_order.shipping_address1 or '',
-                s_order.shipping_address2 or '',
-                s_order.shipping_city or '',
-                s_order.shipping_province or ''
-            ]
-            address = ', '.join(p for p in addr_parts if p)
+            address = full_address
             
             new_sale = Sale(
                 customer_name=s_order.customer_name or 'Cliente Shopify',

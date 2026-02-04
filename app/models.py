@@ -80,6 +80,13 @@ PAYMENT_VIAS = {
     'otro': 'Otro'
 }
 
+SALES_CHANNELS = {
+    'manual': 'Manual (SIPUD)',
+    'whatsapp': 'WhatsApp',
+    'shopify': 'Shopify',
+    'web': 'Web'
+}
+
 
 class Tenant(db.Document):
     name = db.StringField(max_length=100, unique=True, required=True)
@@ -227,6 +234,13 @@ class Sale(db.Document):
         max_length=20,
         default='con_despacho',
         choices=['con_despacho', 'en_local']
+    )
+
+    # Sales channel (origin of the sale)
+    sales_channel = db.StringField(
+        max_length=20,
+        default='manual',
+        choices=['manual', 'whatsapp', 'shopify', 'web']
     )
 
     # Delivery fields
@@ -528,6 +542,63 @@ class ShopifyCustomer(db.Document):
         return ShopifyOrder.objects(customer=self).order_by('-created_at').first()
 
 
+# ============================================
+# BANK RECONCILIATION - Cuadratura Bancaria
+# ============================================
+class BankTransaction(db.Document):
+    """
+    Transacción bancaria importada desde cartola Excel.
+    Se asocia (match) con una venta para cuadratura.
+    """
+    # Datos de la transacción
+    date = db.DateTimeField(required=True)
+    amount = db.DecimalField(precision=2, required=True)
+    description = db.StringField(max_length=500)
+    reference = db.StringField(max_length=100)  # Número de operación/referencia
+    
+    # Tipo de transacción
+    transaction_type = db.StringField(
+        max_length=20,
+        default='credit',
+        choices=['credit', 'debit']  # credit = ingreso, debit = egreso
+    )
+    
+    # Estado de conciliación
+    status = db.StringField(
+        max_length=20,
+        default='pending',
+        choices=['pending', 'matched', 'ignored']
+    )
+    
+    # Match con venta
+    matched_sale = db.ReferenceField('Sale')
+    matched_at = db.DateTimeField()
+    matched_by = db.ReferenceField('User')
+    match_type = db.StringField(max_length=20)  # 'manual' o 'auto'
+    
+    # Metadata
+    source_file = db.StringField(max_length=200)  # Nombre del archivo importado
+    row_number = db.IntField()  # Fila original en el Excel
+    created_at = db.DateTimeField(default=datetime.utcnow)
+    tenant = db.ReferenceField(Tenant)
+    
+    meta = {
+        'collection': 'bank_transactions',
+        'indexes': [
+            'tenant',
+            'date',
+            'status',
+            'matched_sale',
+            '-created_at'
+        ],
+        'ordering': ['-date']
+    }
+    
+    @property
+    def is_matched(self):
+        return self.status == 'matched' and self.matched_sale is not None
+
+
 class ShopifyOrderLineItem(db.EmbeddedDocument):
     """Line item dentro de una orden de Shopify"""
     title = db.StringField(max_length=200)
@@ -560,9 +631,26 @@ class ShopifyOrder(db.Document):
     line_items = db.EmbeddedDocumentListField(ShopifyOrderLineItem)
     
     # Shipping
+    shipping_address1 = db.StringField(max_length=200)  # Calle y número
+    shipping_address2 = db.StringField(max_length=200)  # Depto, oficina, etc.
     shipping_city = db.StringField(max_length=100)
     shipping_province = db.StringField(max_length=100)
+    shipping_phone = db.StringField(max_length=50)
     note = db.StringField()
+    
+    @property
+    def full_shipping_address(self):
+        """Retorna la dirección completa de envío"""
+        parts = []
+        if self.shipping_address1:
+            parts.append(self.shipping_address1)
+        if self.shipping_address2:
+            parts.append(self.shipping_address2)
+        if self.shipping_city:
+            parts.append(self.shipping_city)
+        if self.shipping_province:
+            parts.append(self.shipping_province)
+        return ", ".join(parts) if parts else "Sin dirección"
     
     # Metadata
     created_at = db.DateTimeField()
