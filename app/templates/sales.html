@@ -2,37 +2,103 @@
 
 {% block title %}Ventas{% endblock %}
 
-{% block content %}
+{% block head %}
+<!-- Grid.js CSS -->
+<link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
 <style>
-    /* FORCE all columns visible - override DataTables responsive */
-    #salesTable th,
-    #salesTable td {
-        display: table-cell !important;
-        visibility: visible !important;
-        width: auto !important;
+    /* Grid.js custom theme */
+    .gridjs-wrapper {
+        border-radius: 0.75rem;
+        border: none;
+        box-shadow: none;
     }
-    #salesTable thead th {
-        white-space: nowrap;
+    .gridjs-table {
+        width: 100%;
     }
-    #salesTable {
-        table-layout: auto !important;
-        width: 100% !important;
+    .gridjs-thead th {
+        background-color: #f8fafc;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e2e8f0;
     }
-    /* Hide DataTables responsive controls */
-    .dtr-control,
-    .dataTables_wrapper .dtr-inline.collapsed tbody td:first-child::before,
-    .dataTables_wrapper .dtr-inline.collapsed tbody th:first-child::before {
-        display: none !important;
+    .gridjs-tbody td {
+        padding: 0.875rem 1rem;
+        font-size: 0.875rem;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
     }
-    /* Ensure wrapper allows scroll */
-    .dataTables_wrapper {
-        overflow-x: auto !important;
+    .gridjs-tr:hover td {
+        background-color: #f8fafc;
     }
-    /* Remove responsive hidden class effects */
-    .dtr-hidden {
-        display: table-cell !important;
+    .gridjs-search {
+        width: 100%;
+        max-width: 300px;
+    }
+    .gridjs-search-input {
+        border-radius: 0.5rem;
+        border-color: #e2e8f0;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    .gridjs-search-input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    .gridjs-pagination {
+        padding: 0.75rem 1rem;
+        border-top: 1px solid #e2e8f0;
+    }
+    .gridjs-pages button {
+        border-radius: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        margin: 0 0.125rem;
+    }
+    .gridjs-pages button.gridjs-currentPage {
+        background-color: #6366f1;
+        color: white;
+    }
+    /* Badge styles */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.625rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .badge-blue { background-color: #dbeafe; color: #1e40af; }
+    .badge-purple { background-color: #f3e8ff; color: #7c3aed; }
+    .badge-green { background-color: #dcfce7; color: #166534; }
+    .badge-yellow { background-color: #fef9c3; color: #854d0e; }
+    .badge-red { background-color: #fee2e2; color: #991b1b; }
+    .badge-orange { background-color: #ffedd5; color: #9a3412; }
+    .badge-slate { background-color: #f1f5f9; color: #475569; }
+    .badge-indigo { background-color: #e0e7ff; color: #4338ca; }
+    .badge-cyan { background-color: #cffafe; color: #0e7490; }
+    /* Action button */
+    .btn-action {
+        color: #6366f1;
+        font-weight: 500;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: color 0.15s;
+    }
+    .btn-action:hover {
+        color: #4338ca;
+    }
+    /* Grid.js loading */
+    .gridjs-loading-bar {
+        background-color: #6366f1;
     }
 </style>
+{% endblock %}
+
+{% block content %}
 <div class="flex flex-col gap-6" x-data="salesTable()">
     <!-- Header & Actions -->
     <div class="flex flex-col gap-3">
@@ -163,80 +229,29 @@
         </div>
     </div>
 
-    <!-- Table Container -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto p-4">
-        <table id="salesTable" class="w-full divide-y divide-slate-200" style="min-width: 900px;">
-            <thead class="bg-slate-50">
-                <tr>
-                    <th class="px-3 sm:px-6 py-3">ID</th>
-                    <th class="px-3 sm:px-6 py-3">Fecha</th>
-                    <th class="px-3 sm:px-6 py-3">Cliente</th>
-                    <th class="px-3 sm:px-6 py-3">Tipo</th>
-                    <th class="px-3 sm:px-6 py-3">Canal</th>
-                    <th class="px-3 sm:px-6 py-3">Entrega</th>
-                    <th class="px-3 sm:px-6 py-3">Pago</th>
-                    <th class="px-3 sm:px-6 py-3">Acciones</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-slate-200">
-                {% for sale in sales %}
-                <tr data-sale-id="{{ sale.id }}" data-delivery="{{ sale.delivery_status }}" data-payment="{{ sale.payment_status }}" data-type="{{ sale.sale_type }}" data-channel="{{ sale.sales_channel }}">
-                    <td class="px-3 sm:px-6 py-3 sm:py-4 text-xs text-slate-500 font-mono">#{{ sale.id|string|truncate(8, True, '') }}</td>
-                    <td class="px-3 sm:px-6 py-3 sm:py-4 text-xs text-slate-600">{{ sale.date_created.strftime('%d/%m/%Y') if sale.date_created else '-' }}</td>
-                    <td class="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium text-slate-900">{{ sale.customer_name }}</td>
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div class="text-slate-500 text-xs font-medium uppercase">Total Ventas</div>
+            <div class="text-2xl font-bold text-slate-800 mt-1" id="stat-total">-</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div class="text-slate-500 text-xs font-medium uppercase">Pendientes</div>
+            <div class="text-2xl font-bold text-yellow-600 mt-1" id="stat-pending">-</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div class="text-slate-500 text-xs font-medium uppercase">Entregadas</div>
+            <div class="text-2xl font-bold text-green-600 mt-1" id="stat-delivered">-</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div class="text-slate-500 text-xs font-medium uppercase">Por Cobrar</div>
+            <div class="text-2xl font-bold text-red-600 mt-1" id="stat-unpaid">-</div>
+        </div>
+    </div>
 
-                    <!-- Tipo -->
-                    <td class="px-3 sm:px-6 py-3 sm:py-4">
-                        <span class="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if sale.sale_type == 'en_local' %}bg-purple-100 text-purple-800
-                            {% else %}bg-blue-100 text-blue-800{% endif %}">
-                            {% if sale.sale_type == 'en_local' %}Local{% else %}Despacho{% endif %}
-                        </span>
-                    </td>
-
-                    <!-- Canal de Venta -->
-                    <td class="px-3 sm:px-6 py-3 sm:py-4">
-                        <span class="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if sale.sales_channel == 'whatsapp' %}bg-green-100 text-green-800
-                            {% elif sale.sales_channel == 'shopify' %}bg-indigo-100 text-indigo-800
-                            {% elif sale.sales_channel == 'web' %}bg-cyan-100 text-cyan-800
-                            {% else %}bg-slate-100 text-slate-800{% endif %}">
-                            {{ sale.sales_channel|translate_channel }}
-                        </span>
-                    </td>
-
-                    <!-- Estado de Entrega -->
-                    <td class="px-3 sm:px-6 py-3 sm:py-4">
-                        <span class="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if sale.delivery_status == 'entregado' %}bg-green-100 text-green-800
-                            {% elif sale.delivery_status == 'con_observaciones' %}bg-orange-100 text-orange-800
-                            {% elif sale.delivery_status == 'cancelado' %}bg-red-100 text-red-800
-                            {% else %}bg-slate-100 text-slate-800{% endif %}">
-                            {{ sale.delivery_status|translate_status }}
-                        </span>
-                    </td>
-
-                    <!-- Estado de Pago -->
-                    <td class="px-3 sm:px-6 py-3 sm:py-4">
-                        <span class="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if sale.payment_status == 'pagado' %}bg-green-100 text-green-800
-                            {% elif sale.payment_status == 'parcial' %}bg-yellow-100 text-yellow-800
-                            {% else %}bg-red-100 text-red-800{% endif %}">
-                            {{ sale.payment_status|translate_status }}
-                        </span>
-                    </td>
-
-                    <!-- Acciones -->
-                    <td class="px-3 sm:px-6 py-3 sm:py-4">
-                        <button onclick="event.stopPropagation(); openUpdateModalFromTable('{{ sale.id }}')"
-                            class="text-primary-600 hover:text-primary-800 text-sm font-medium">
-                            Actualizar
-                        </button>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Grid.js Table Container -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div id="salesGrid"></div>
     </div>
 
     <!-- Sale Detail Modal -->
@@ -1524,39 +1539,220 @@
         }
     }
 
-    // DataTables DISABLED - using simple HTML table
-    $(document).ready(function() {
-        // FORCE column visibility - override any DataTables responsive effects
-        setTimeout(function() {
-            $('#salesTable th, #salesTable td').each(function() {
-                $(this).css({
-                    'display': 'table-cell',
-                    'visibility': 'visible'
-                }).removeClass('dtr-hidden');
-            });
-            // Destroy DataTables if it auto-initialized
-            if ($.fn.DataTable.isDataTable('#salesTable')) {
-                $('#salesTable').DataTable().destroy();
+    function openModalFromTable(saleId) {
+        const element = document.querySelector('[x-data*="salesTable"]');
+        if (element && element._x_dataStack && element._x_dataStack[0]) {
+            const alpineComponent = element._x_dataStack[0];
+            if (alpineComponent.openModal) {
+                alpineComponent.openModal(saleId);
             }
-        }, 100);
-        
-        // Simple row click handler
-        $('#salesTable tbody').on('click', 'tr', function(e) {
-            if ($(e.target).closest('button').length) return;
-            
-            var saleId = $(this).data('sale-id');
-            if (saleId) {
-                const element = document.querySelector('[x-data*="salesTable"]');
-                if (element && element._x_dataStack && element._x_dataStack[0]) {
-                    const alpineComponent = element._x_dataStack[0];
-                    if (alpineComponent.openModal) {
-                        alpineComponent.openModal(saleId);
+        }
+    }
+</script>
+
+<!-- Grid.js -->
+<script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Helper functions for badges
+    function typeBadge(type) {
+        if (type === 'en_local') {
+            return gridjs.html('<span class="badge badge-purple">Local</span>');
+        }
+        return gridjs.html('<span class="badge badge-blue">Despacho</span>');
+    }
+
+    function channelBadge(channel) {
+        const badges = {
+            'whatsapp': '<span class="badge badge-green">WhatsApp</span>',
+            'shopify': '<span class="badge badge-indigo">Shopify</span>',
+            'web': '<span class="badge badge-cyan">Web</span>',
+            'manual': '<span class="badge badge-slate">Manual</span>'
+        };
+        return gridjs.html(badges[channel] || badges['manual']);
+    }
+
+    function deliveryBadge(status) {
+        const badges = {
+            'entregado': '<span class="badge badge-green">Entregado</span>',
+            'pendiente': '<span class="badge badge-yellow">Pendiente</span>',
+            'en_preparacion': '<span class="badge badge-slate">En Preparación</span>',
+            'en_transito': '<span class="badge badge-blue">En Tránsito</span>',
+            'con_observaciones': '<span class="badge badge-orange">Con Observaciones</span>',
+            'cancelado': '<span class="badge badge-red">Cancelado</span>'
+        };
+        return gridjs.html(badges[status] || badges['pendiente']);
+    }
+
+    function paymentBadge(status) {
+        const badges = {
+            'pagado': '<span class="badge badge-green">Pagado</span>',
+            'parcial': '<span class="badge badge-yellow">Parcial</span>',
+            'pendiente': '<span class="badge badge-red">Pendiente</span>'
+        };
+        return gridjs.html(badges[status] || badges['pendiente']);
+    }
+
+    function formatMoney(amount) {
+        return '$' + (amount || 0).toLocaleString('es-CL');
+    }
+
+    // Initialize Grid.js
+    const grid = new gridjs.Grid({
+        columns: [
+            { 
+                id: 'date',
+                name: 'Fecha',
+                width: '100px',
+                formatter: (cell) => cell ? cell.split(' ')[0].split('-').reverse().join('/') : '-'
+            },
+            { 
+                id: 'customer',
+                name: 'Cliente',
+                width: '180px',
+                formatter: (cell) => gridjs.html(`<span class="font-medium text-slate-900">${cell || '-'}</span>`)
+            },
+            {
+                id: 'address',
+                name: 'Dirección',
+                width: '200px',
+                formatter: (cell) => {
+                    if (!cell) return '-';
+                    const short = cell.length > 35 ? cell.substring(0, 35) + '...' : cell;
+                    return gridjs.html(`<span class="text-slate-600 text-xs" title="${cell}">${short}</span>`);
+                }
+            },
+            { 
+                id: 'total',
+                name: 'Total',
+                width: '100px',
+                formatter: (cell) => gridjs.html(`<span class="font-semibold text-slate-900">${formatMoney(cell)}</span>`)
+            },
+            { 
+                id: 'sale_type',
+                name: 'Tipo',
+                width: '90px',
+                formatter: (cell) => typeBadge(cell)
+            },
+            { 
+                id: 'sales_channel',
+                name: 'Canal',
+                width: '90px',
+                formatter: (cell) => channelBadge(cell)
+            },
+            { 
+                id: 'delivery_status',
+                name: 'Entrega',
+                width: '120px',
+                formatter: (cell) => deliveryBadge(cell)
+            },
+            { 
+                id: 'payment_status',
+                name: 'Pago',
+                width: '90px',
+                formatter: (cell) => paymentBadge(cell)
+            },
+            {
+                id: 'id',
+                name: 'Acciones',
+                width: '100px',
+                sort: false,
+                formatter: (cell) => gridjs.html(`
+                    <button onclick="openUpdateModalFromTable('${cell}')" class="btn-action">
+                        Actualizar
+                    </button>
+                `)
+            }
+        ],
+        server: {
+            url: '/api/sales?per_page=500',
+            then: data => {
+                // Update stats
+                const sales = data.sales || [];
+                document.getElementById('stat-total').textContent = sales.length;
+                document.getElementById('stat-pending').textContent = sales.filter(s => s.delivery_status === 'pendiente' || s.delivery_status === 'en_preparacion').length;
+                document.getElementById('stat-delivered').textContent = sales.filter(s => s.delivery_status === 'entregado').length;
+                document.getElementById('stat-unpaid').textContent = sales.filter(s => s.payment_status === 'pendiente').length;
+                
+                return sales.map(s => [
+                    s.date,
+                    s.customer,
+                    s.address,
+                    s.total,
+                    s.sale_type,
+                    s.sales_channel,
+                    s.delivery_status,
+                    s.payment_status,
+                    s.id
+                ]);
+            }
+        },
+        search: {
+            enabled: true,
+            placeholder: '🔍 Buscar cliente, dirección...'
+        },
+        sort: true,
+        pagination: {
+            enabled: true,
+            limit: 20,
+            summary: true
+        },
+        language: {
+            search: { placeholder: '🔍 Buscar...' },
+            pagination: {
+                previous: '← Anterior',
+                next: 'Siguiente →',
+                showing: 'Mostrando',
+                of: 'de',
+                to: 'a',
+                results: 'resultados'
+            },
+            loading: 'Cargando...',
+            noRecordsFound: 'No se encontraron ventas',
+            error: 'Error al cargar datos'
+        },
+        className: {
+            table: 'gridjs-table',
+            thead: 'gridjs-thead',
+            tbody: 'gridjs-tbody',
+            tr: 'gridjs-tr',
+            th: 'gridjs-th',
+            td: 'gridjs-td'
+        },
+        style: {
+            table: { width: '100%' }
+        }
+    }).render(document.getElementById('salesGrid'));
+
+    // Store grid instance for refreshing
+    window.salesGrid = grid;
+
+    // Handle row clicks for opening detail modal
+    document.getElementById('salesGrid').addEventListener('click', function(e) {
+        const row = e.target.closest('.gridjs-tr');
+        if (row && !e.target.closest('button')) {
+            const cells = row.querySelectorAll('.gridjs-td');
+            if (cells.length > 0) {
+                // Get ID from the last cell (Acciones column has the ID)
+                const actionCell = cells[cells.length - 1];
+                const btn = actionCell.querySelector('button');
+                if (btn) {
+                    const onclickAttr = btn.getAttribute('onclick');
+                    const match = onclickAttr.match(/'([^']+)'/);
+                    if (match) {
+                        openModalFromTable(match[1]);
                     }
                 }
             }
-        });
-        
-        $('#salesTable tbody tr').css('cursor', 'pointer');
+        }
     });
+});
+
+// Function to refresh the grid
+function refreshSalesGrid() {
+    if (window.salesGrid) {
+        window.salesGrid.forceRender();
+    }
+}
 </script>
 {% endblock %}

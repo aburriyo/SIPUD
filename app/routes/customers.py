@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from flask import Blueprint, jsonify, request, g, render_template, send_file
 from flask_login import login_required, current_user
@@ -11,13 +12,38 @@ from io import BytesIO
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 
+# Add scripts directory to path for shopify_auth import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'scripts'))
+try:
+    from shopify_auth import get_auth_headers, get_access_token
+    SHOPIFY_AUTH_AVAILABLE = True
+except ImportError:
+    SHOPIFY_AUTH_AVAILABLE = False
+
 bp = Blueprint('customers', __name__, url_prefix='/customers')
 
 # Shopify API Configuration
 SHOPIFY_STORE = os.environ.get('SHOPIFY_STORE_DOMAIN', '')
-SHOPIFY_TOKEN = os.environ.get('SHOPIFY_ACCESS_TOKEN', '')
 SHOPIFY_API_VERSION = '2026-01'
 SHOPIFY_BASE_URL = f'https://{SHOPIFY_STORE}/admin/api/{SHOPIFY_API_VERSION}'
+
+
+def get_shopify_headers():
+    """Get Shopify API headers with valid access token (auto-refreshes)"""
+    if SHOPIFY_AUTH_AVAILABLE:
+        try:
+            return get_auth_headers()
+        except Exception as e:
+            raise RuntimeError(f"Error obteniendo token Shopify: {str(e)}")
+    else:
+        # Fallback to legacy static token
+        token = os.environ.get('SHOPIFY_ACCESS_TOKEN', '')
+        if not token:
+            raise RuntimeError("SHOPIFY_ACCESS_TOKEN no configurado")
+        return {
+            'X-Shopify-Access-Token': token,
+            'Content-Type': 'application/json'
+        }
 
 
 def permission_required(module, action='view'):
@@ -522,10 +548,10 @@ def sync_shopify():
     """Sync customers and orders from Shopify (admin only)"""
     tenant = g.current_tenant
     
-    headers = {
-        'X-Shopify-Access-Token': SHOPIFY_TOKEN,
-        'Content-Type': 'application/json'
-    }
+    try:
+        headers = get_shopify_headers()
+    except RuntimeError as e:
+        return jsonify({'error': str(e)}), 500
     
     stats = {
         'customers_synced': 0,
@@ -911,10 +937,10 @@ def sync_shopify_preview():
     """
     tenant = g.current_tenant
     
-    headers = {
-        'X-Shopify-Access-Token': SHOPIFY_TOKEN,
-        'Content-Type': 'application/json'
-    }
+    try:
+        headers = get_shopify_headers()
+    except RuntimeError as e:
+        return jsonify({'error': str(e), 'errors': [str(e)]}), 500
     
     preview = {
         'products': {'new': [], 'update': [], 'unchanged': 0},
