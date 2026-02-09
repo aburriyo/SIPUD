@@ -3,6 +3,7 @@ Módulo de Cuadratura Bancaria - SIPUD
 Permite importar cartolas bancarias y conciliar con ventas.
 """
 import os
+import logging
 from flask import Blueprint, jsonify, request, g, render_template
 from flask_login import login_required, current_user
 from app.models import BankTransaction, Sale, Tenant, ActivityLog, utc_now
@@ -11,6 +12,8 @@ from decimal import Decimal
 from bson import ObjectId
 from functools import wraps
 from io import BytesIO
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('reconciliation', __name__, url_prefix='/reconciliation')
 
@@ -435,12 +438,14 @@ def match_transaction(tx_id):
     
     try:
         tx = BankTransaction.objects.get(id=ObjectId(tx_id), tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"match_transaction: Transacción no encontrada {tx_id} - {e}")
         return jsonify({'error': 'Transacción no encontrada'}), 404
     
     try:
         sale = Sale.objects.get(id=ObjectId(sale_id), tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"match_transaction: Venta no encontrada {sale_id} - {e}")
         return jsonify({'error': 'Venta no encontrada'}), 404
     
     # Match
@@ -483,7 +488,8 @@ def unmatch_transaction(tx_id):
     
     try:
         tx = BankTransaction.objects.get(id=ObjectId(tx_id), tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"unmatch_transaction: Transacción no encontrada {tx_id} - {e}")
         return jsonify({'error': 'Transacción no encontrada'}), 404
     
     tx.matched_sale = None
@@ -508,7 +514,8 @@ def ignore_transaction(tx_id):
     
     try:
         tx = BankTransaction.objects.get(id=ObjectId(tx_id), tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"ignore_transaction: Transacción no encontrada {tx_id} - {e}")
         return jsonify({'error': 'Transacción no encontrada'}), 404
     
     tx.status = 'ignored'
@@ -529,7 +536,8 @@ def get_match_suggestions(tx_id):
     
     try:
         tx = BankTransaction.objects.get(id=ObjectId(tx_id), tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"get_match_suggestions: Transacción no encontrada {tx_id} - {e}")
         return jsonify({'error': 'Transacción no encontrada'}), 404
     
     # Search criteria: amount ±1%, date ±3 days

@@ -13,6 +13,9 @@ from bson import ObjectId
 from datetime import datetime
 from urllib.parse import quote
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("delivery", __name__, url_prefix="/delivery")
 
@@ -120,7 +123,8 @@ def view_sheet(sheet_id):
     
     try:
         sheet = DeliverySheet.objects.get(id=sheet_id, tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"view_sheet: Hoja no encontrada {sheet_id} - {e}")
         return jsonify({"error": "Hoja no encontrada"}), 404
     
     # Preparar datos de ventas con links a mapas
@@ -176,7 +180,8 @@ def create_sheet():
     # Parsear fecha
     try:
         date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-    except Exception:
+    except Exception as e:
+        logger.warning(f"create_sheet: Formato de fecha inválido '{data.get('date')}' - {e}")
         return jsonify({"error": "Formato de fecha inválido"}), 400
     
     # Obtener ventas
@@ -236,7 +241,8 @@ def update_sheet(sheet_id):
     
     try:
         sheet = DeliverySheet.objects.get(id=sheet_id, tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"update_sheet: Hoja no encontrada {sheet_id} - {e}")
         return jsonify({"error": "Hoja no encontrada"}), 404
     
     # Actualizar campos
@@ -272,7 +278,8 @@ def delete_sheet(sheet_id):
     
     try:
         sheet = DeliverySheet.objects.get(id=sheet_id, tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"delete_sheet: Hoja no encontrada {sheet_id} - {e}")
         return jsonify({"error": "Hoja no encontrada"}), 404
     
     # Revertir estado de ventas si estaban en preparación
@@ -296,7 +303,8 @@ def update_sale_in_sheet(sheet_id, sale_id):
     try:
         sheet = DeliverySheet.objects.get(id=sheet_id, tenant=tenant)
         sale = Sale.objects.get(id=sale_id, tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"update_sale_in_sheet: No encontrado sheet={sheet_id} sale={sale_id} - {e}")
         return jsonify({"error": "No encontrado"}), 404
     
     # Verificar que la venta esté en esta hoja
@@ -343,7 +351,8 @@ def generate_pdf(sheet_id):
     
     try:
         sheet = DeliverySheet.objects.get(id=sheet_id, tenant=tenant)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"generate_pdf: Hoja no encontrada {sheet_id} - {e}")
         return jsonify({"error": "Hoja no encontrada"}), 404
     
     # Preparar datos
