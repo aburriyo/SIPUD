@@ -88,10 +88,7 @@
 - [ ] Segmentación de clientes (todos, mayoristas, frecuentes, etc.)
 - [ ] Diseño HTML bonito para emails
 
-**Opciones de implementación:**
-- Opción A: Integrar con Mailchimp/Brevo (más robusto, tiene free tier)
-- Opción B: Envío directo desde SIPUD (más simple, límites de Gmail)
-- Opción C: Amazon SES (barato, más técnico)
+**Implementación:** Directo desde SIPUD (Flask-Mail)
 
 **Consideraciones:**
 - Cumplir con anti-spam (unsubscribe, consentimiento)
