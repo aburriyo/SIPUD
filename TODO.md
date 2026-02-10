@@ -79,6 +79,25 @@
 - [ ] Hook en SIPUD al crear venta → enviar mensaje
 - [ ] Formato: "🛒 Nueva venta: Juan Pérez - $25.000 (3 productos)"
 
+### 8. Gestión de Facturas y Gastos
+**Estado:** 🔴 Pendiente
+
+**Módulo de Facturas:**
+- [ ] Modelo `Invoice` (proveedor, monto, fecha emisión, fecha vencimiento, estado)
+- [ ] Subir/adjuntar PDF de factura
+- [ ] SIPUD lee datos de factura (manual o OCR básico)
+- [ ] Vista de facturas pendientes de pago
+
+**Notificaciones de Vencimiento:**
+- [ ] Alerta cuando factura está por vencer (ej: 7 días antes)
+- [ ] Incluir en email consolidado diario
+- [ ] Recordatorio de pago pendiente
+
+**Consolidado de Gastos:**
+- [ ] Reporte de gastos por período
+- [ ] Categorización de gastos
+- [ ] Comparativa con ingresos (flujo de caja)
+
 ---
 
 ## 🌐 Web puertodistribucion.cl
@@ -102,6 +121,15 @@
 - [ ] Configurar Google Search Console
 - [ ] Investigar keywords para otras áreas/búsquedas
 - [ ] Considerar contenido de blog para posicionamiento
+
+### 8. Revisión General Shopify
+**Estado:** 🔴 Pendiente
+- [ ] Revisar configuración actual de la tienda
+- [ ] Verificar productos y precios actualizados
+- [ ] Revisar flujo de checkout
+- [ ] Verificar métodos de pago activos
+- [ ] Revisar políticas (envío, devoluciones)
+- [ ] Modificaciones pendientes según feedback cliente
 
 ### 2. Arreglar errores silenciosos
 **Estado:** ✅ Completado (2026-02-09)
