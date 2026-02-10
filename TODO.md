@@ -19,11 +19,22 @@
 - [ ] Agregar filtro en vista de ventas para ver solo mayoristas
 - [ ] Considerar campos adicionales (cliente mayorista, condiciones)
 
-### 3. Integración Google Sheets
+### 3. Integración Google Sheets (CRM → Clientes)
 **Estado:** 🔴 Pendiente
-- [ ] Definir estructura del Sheet con cliente
-- [ ] Implementar lectura de Sheet desde SIPUD (API Google)
-- [ ] Sync de datos (manual o automático)
+
+**Contexto:** El Sheet tiene un sistema de semáforo para leads:
+- 🔴 Poco interesados
+- 🟡 Interesados  
+- 🟢 **Calificados** ← estos se importan a SIPUD
+
+**Tareas:**
+- [ ] Obtener acceso al Sheet actual
+- [ ] Mapear columnas del Sheet → campos de Cliente en SIPUD
+- [ ] Implementar lectura de Sheet (API Google Sheets)
+- [ ] Filtrar solo leads "Calificados" (semáforo verde)
+- [ ] Crear/actualizar clientes en SIPUD automáticamente
+- [ ] Evitar duplicados (match por email/teléfono)
+- [ ] UI para ver estado de sync y logs
 
 ### 4. Flujo de Caja
 **Estado:** 🔴 Pendiente
