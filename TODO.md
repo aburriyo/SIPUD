@@ -79,7 +79,28 @@
 - [ ] Hook en SIPUD al crear venta → enviar mensaje
 - [ ] Formato: "🛒 Nueva venta: Juan Pérez - $25.000 (3 productos)"
 
-### 8. Gestión de Facturas y Gastos
+### 8. Email Marketing a Clientes (Idea 💡)
+**Estado:** 🔴 Pendiente
+
+**Funcionalidad:**
+- [ ] Envío de correos masivos a clientes
+- [ ] Plantillas de promociones/ofertas
+- [ ] Segmentación de clientes (todos, mayoristas, frecuentes, etc.)
+- [ ] Diseño HTML bonito para emails
+
+**Opciones de implementación:**
+- Opción A: Integrar con Mailchimp/Brevo (más robusto, tiene free tier)
+- Opción B: Envío directo desde SIPUD (más simple, límites de Gmail)
+- Opción C: Amazon SES (barato, más técnico)
+
+**Consideraciones:**
+- Cumplir con anti-spam (unsubscribe, consentimiento)
+- No saturar a clientes
+- Medir apertura/clicks
+
+---
+
+### 9. Gestión de Facturas y Gastos
 **Estado:** 🔴 Pendiente
 
 **Módulo de Facturas:**
