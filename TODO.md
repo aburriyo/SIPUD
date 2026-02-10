@@ -118,6 +118,22 @@
 
 ---
 
+### 💡 IDEA FUTURA: Simulador Financiero
+**Estado:** 📋 Idea para más adelante
+
+**Concepto:**
+- Simular ventas basado en datos históricos
+- Analizar comportamiento de clientes
+- Cotización a empresa → calcular:
+  - Punto de equilibrio
+  - Tiempo para recuperar inversión (ROI)
+  - Proyección de ganancias
+- Simulaciones "what-if"
+
+**Requiere:** Datos históricos suficientes para hacer proyecciones confiables
+
+---
+
 ## 🌐 Web puertodistribucion.cl
 
 ### 6. URLs Rotas (404)
