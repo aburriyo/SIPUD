@@ -48,6 +48,37 @@
 - [ ] Consolidar proceso de recepción
 - [ ] Posible conexión con Sheet externo
 
+### 6. Notificaciones por Correo (Consolidado)
+**Estado:** 🔴 Pendiente
+
+**Email diario (cron ~19:00):**
+- [ ] Consolidado de ventas del día
+- [ ] Pedidos que quedaron pendientes
+- [ ] Quiebres de stock (productos bajo mínimo)
+- [ ] Horarios/estado de repartidores
+
+**Implementación:**
+- [ ] Crear template de email HTML bonito
+- [ ] Configurar cron job para envío 19:00
+- [ ] Usar Flask-Mail (ya configurado en .env)
+- [ ] Definir destinatarios (admin/manager)
+
+*Nota: NO un correo por cada venta, solo consolidado diario*
+
+### 7. Bot Telegram — Ventas en Tiempo Real
+**Estado:** 🔴 Pendiente
+
+**Funcionalidad:**
+- [ ] Bot que notifica nuevas ventas al instante
+- [ ] Mensaje corto y bonito (emoji + cliente + total)
+- [ ] Enviar a grupo de Telegram del equipo
+
+**Implementación:**
+- [ ] Crear bot en @BotFather
+- [ ] Agregar bot al grupo de Puerto Distribución
+- [ ] Hook en SIPUD al crear venta → enviar mensaje
+- [ ] Formato: "🛒 Nueva venta: Juan Pérez - $25.000 (3 productos)"
+
 ---
 
 ## 🌐 Web puertodistribucion.cl
