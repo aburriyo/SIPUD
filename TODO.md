@@ -13,17 +13,41 @@
 - [ ] Testear flujo completo WhatsApp → SIPUD
 - [ ] Verificar descuento de stock automático
 
-### 2. Arreglar errores silenciosos (27 except:pass)
+### 2. Ventas Mayoristas
 **Estado:** 🔴 Pendiente
-**Impacto:** Errores se pierden, difícil debuggear
+- [ ] Agregar canal `mayorista` a `SALES_CHANNELS` en `models.py`
+- [ ] Agregar filtro en vista de ventas para ver solo mayoristas
+- [ ] Considerar campos adicionales (cliente mayorista, condiciones)
 
-Archivos afectados:
-- [ ] `app/routes/delivery.py` (8 bloques)
-- [ ] `app/routes/reconciliation.py` (9 bloques)
-- [ ] `app/routes/api.py` (2 bloques)
-- [ ] `app/routes/reports.py` (4 bloques)
-- [ ] `app/routes/main.py` (3 bloques)
-- [ ] `app/routes/customers.py` (1 bloque)
+### 3. Integración Google Sheets
+**Estado:** 🔴 Pendiente
+- [ ] Definir estructura del Sheet con cliente
+- [ ] Implementar lectura de Sheet desde SIPUD (API Google)
+- [ ] Sync de datos (manual o automático)
+
+### 4. Flujo de Caja
+**Estado:** 🔴 Pendiente
+- [ ] Diseñar reporte de flujo de caja
+- [ ] Basado en ventas + pagos registrados
+- [ ] Exportable a Excel/PDF
+
+### 5. Mejora Recepción de Mercancía
+**Estado:** 🔴 Pendiente
+- [ ] Revisar módulo actual de órdenes de entrada
+- [ ] Consolidar proceso de recepción
+- [ ] Posible conexión con Sheet externo
+
+### 2. Arreglar errores silenciosos
+**Estado:** ✅ Completado (2026-02-09)
+**Commit:** c6834c9
+
+Archivos arreglados:
+- [x] `app/routes/delivery.py` (6 casos con logging)
+- [x] `app/routes/reconciliation.py` (5 casos con logging)
+- [x] `app/routes/reports.py` — OK, excepciones específicas con comentario
+- [x] `app/routes/api.py` — OK, ya tenían logging
+- [x] `app/routes/main.py` — OK
+- [x] `app/routes/customers.py` — OK
 
 ### 3. Backup automático
 **Estado:** 🔴 Pendiente
@@ -122,6 +146,7 @@ _Ninguno reportado actualmente_
 - [x] Sync Shopify con preview
 - [x] Sistema de pagos múltiples
 - [x] Importación clientes desde Excel
+- [x] Logging en exception handlers (2026-02-09)
 
 ---
 
