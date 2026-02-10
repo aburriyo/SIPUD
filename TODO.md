@@ -37,6 +37,30 @@
 - [ ] Consolidar proceso de recepción
 - [ ] Posible conexión con Sheet externo
 
+---
+
+## 🌐 Web puertodistribucion.cl
+
+### 6. URLs Rotas (404)
+**Estado:** 🔴 Pendiente
+- [ ] Auditar sitio completo para encontrar URLs rotas
+- [ ] Identificar enlaces internos rotos
+- [ ] Configurar redirecciones 301 donde corresponda
+- [ ] Implementar página 404 personalizada
+
+### 7. SEO y Posicionamiento
+**Estado:** 🔴 Pendiente
+- [ ] Auditoría SEO completa del sitio
+- [ ] Optimizar meta titles y descriptions
+- [ ] Revisar estructura de URLs (slugs amigables)
+- [ ] Agregar schema markup (productos, negocio local)
+- [ ] Optimizar imágenes (alt text, compresión)
+- [ ] Revisar velocidad de carga (Core Web Vitals)
+- [ ] Crear/actualizar sitemap.xml
+- [ ] Configurar Google Search Console
+- [ ] Investigar keywords para otras áreas/búsquedas
+- [ ] Considerar contenido de blog para posicionamiento
+
 ### 2. Arreglar errores silenciosos
 **Estado:** ✅ Completado (2026-02-09)
 **Commit:** c6834c9
