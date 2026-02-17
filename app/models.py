@@ -21,7 +21,7 @@ ROLE_PERMISSIONS = {
         'wastage': ['view', 'create', 'delete'],
         'reports': ['view', 'export'],
         'activity_log': ['view'],
-        'customers': ['view', 'create', 'export', 'sync'],
+        'customers': ['view', 'create', 'edit', 'export', 'sync'],
         'reconciliation': ['view', 'create', 'edit', 'export'],
     },
     'manager': {
@@ -32,7 +32,7 @@ ROLE_PERMISSIONS = {
         'wastage': ['view', 'create', 'delete'],
         'reports': ['view', 'export'],
         'activity_log': [],  # No access
-        'customers': ['view', 'create', 'export'],
+        'customers': ['view', 'create', 'edit', 'export'],
         'reconciliation': ['view', 'create', 'edit', 'export'],
     },
     'warehouse': {
@@ -543,11 +543,11 @@ class ShopifyCustomer(db.Document):
     address_country = db.StringField(max_length=100)
     
     # Source tracking
-    source = db.StringField(max_length=20, default='shopify', choices=['shopify', 'manual', 'import'])
+    source = db.StringField(max_length=20, default='shopify', choices=['shopify', 'manual', 'import', 'manychat'])
     
     # Shopify fields
     shopify_id = db.StringField(max_length=50, unique=True, sparse=True)
-    tags = db.StringField(max_length=500)
+    tags = db.ListField(db.StringField(max_length=50), default=list)
     
     # Stats (calculated from orders)
     total_orders = db.IntField(default=0)
@@ -565,6 +565,8 @@ class ShopifyCustomer(db.Document):
         'indexes': [
             'shopify_id',
             'email',
+            'phone',
+            'tags',
             'tenant',
             '-total_spent',
             '-created_at'
