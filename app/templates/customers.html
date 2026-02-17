@@ -42,6 +42,21 @@
             </button>
             
             {% if current_user.has_permission('customers', 'sync') %}
+            <button @click="syncManyChat()"
+                :disabled="syncingManyChat"
+                class="inline-flex items-center justify-center px-4 py-2.5 bg-[#0084FF] hover:bg-[#006ACD] text-white text-sm font-medium rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <svg x-show="!syncingManyChat" class="w-5 h-5 sm:mr-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.906 1.453 5.497 3.727 7.192V22l3.405-1.868c.91.252 1.87.388 2.868.388 5.523 0 10-4.145 10-9.257S17.523 2 12 2zm1.07 12.457l-2.552-2.722-4.98 2.722 5.476-5.815 2.614 2.722 4.918-2.722-5.476 5.815z"/>
+                </svg>
+                <svg x-show="syncingManyChat" class="animate-spin w-5 h-5 sm:mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="hidden sm:inline" x-text="syncingManyChat ? 'Sincronizando...' : 'ManyChat'"></span>
+            </button>
+            {% endif %}
+
+            {% if current_user.has_permission('customers', 'sync') %}
             <button @click="syncShopify()"
                 :disabled="syncing"
                 class="inline-flex items-center justify-center px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -537,6 +552,7 @@ function customersApp() {
         confirmMessage: '',
         confirmAction: null,
         syncing: false,
+        syncingManyChat: false,
         importing: false,
         importPreview: false,
         importPreviewData: [],
@@ -656,6 +672,32 @@ function customersApp() {
                 this.confirmAction();
                 this.confirmAction = null;
             }
+        },
+
+        syncManyChat() {
+            this.syncingManyChat = true;
+            fetch('/customers/api/customers/sync-manychat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(({ ok, data }) => {
+                this.syncingManyChat = false;
+                if (!ok) {
+                    this.$dispatch('toast', { message: data.error || 'Error al sincronizar ManyChat', type: 'error' });
+                    return;
+                }
+                let msg = 'ManyChat: ' + data.created + ' clientes creados, ' + data.sales_created + ' ventas';
+                if (data.skipped > 0) msg += ', ' + data.skipped + ' ya existian';
+                if (data.errors && data.errors.length > 0) msg += ' (' + data.errors.length + ' errores)';
+                this.$dispatch('toast', { message: msg, type: 'success' });
+                this.loadStats();
+                this.table.ajax.reload();
+            })
+            .catch(err => {
+                this.syncingManyChat = false;
+                this.$dispatch('toast', { message: 'Error de conexion al sincronizar ManyChat', type: 'error' });
+            });
         },
 
         syncShopify() {

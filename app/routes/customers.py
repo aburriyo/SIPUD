@@ -11,6 +11,8 @@ import requests
 from io import BytesIO
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Alignment, PatternFill
+import gspread
+from google.oauth2.service_account import Credentials
 
 # Add scripts directory to path for shopify_auth import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'scripts'))
@@ -44,6 +46,18 @@ def get_shopify_headers():
             'X-Shopify-Access-Token': token,
             'Content-Type': 'application/json'
         }
+
+
+def get_google_sheet():
+    """Connect to the ManyChat Google Sheet"""
+    creds_file = os.environ.get('GOOGLE_SHEETS_CREDENTIALS_FILE')
+    sheet_id = os.environ.get('GOOGLE_SHEETS_ID')
+    if not creds_file or not sheet_id:
+        raise RuntimeError('GOOGLE_SHEETS_CREDENTIALS_FILE y GOOGLE_SHEETS_ID son requeridos en .env')
+    scopes = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+    credentials = Credentials.from_service_account_file(creds_file, scopes=scopes)
+    client = gspread.authorize(credentials)
+    return client.open_by_key(sheet_id).sheet1
 
 
 def permission_required(module, action='view'):
@@ -1131,3 +1145,139 @@ def sync_shopify_preview():
     }
     
     return jsonify(preview)
+
+
+@bp.route('/api/customers/sync-manychat', methods=['POST'])
+@login_required
+@permission_required('customers', 'sync')
+def sync_manychat():
+    """Import leads from ManyChat Google Sheet"""
+    tenant = g.current_tenant
+
+    try:
+        sheet = get_google_sheet()
+    except Exception as e:
+        return jsonify({'error': f'Error conectando a Google Sheets: {str(e)}'}), 500
+
+    try:
+        records = sheet.get_all_records()
+    except Exception as e:
+        return jsonify({'error': f'Error leyendo Sheet: {str(e)}'}), 500
+
+    stats = {'created': 0, 'skipped': 0, 'sales_created': 0, 'errors': []}
+
+    from app.models import Sale, SaleItem, Product
+    import re
+
+    for idx, row in enumerate(records):
+        try:
+            phone = str(row.get('User ID', '')).strip()
+            name = str(row.get('Nombre', '')).strip()
+            semaforo_raw = str(row.get('Semáforo', row.get('Semaforo', ''))).strip()
+            city = str(row.get('Ciudad', '')).strip()
+            productos_raw = str(row.get('Productos interes', '')).strip()
+            lugar_entrega = str(row.get('Lugar Entrega', '')).strip()
+            hora_entrega = str(row.get('Hora Entrega estimada', '') or row.get('Hora Entrega', '')).strip()
+            metodo_pago = str(row.get('Método de Pago', row.get('Metodo de Pago', ''))).strip()
+
+            if not phone or not name:
+                continue
+
+            # Normalize phone
+            phone_clean = phone.replace('+', '').replace(' ', '').replace('-', '')
+
+            # Check if already imported (dedup by phone)
+            existing = ShopifyCustomer.objects(
+                __raw__={'$or': [
+                    {'phone': phone},
+                    {'phone': phone_clean},
+                    {'phone': f'+{phone_clean}'},
+                    {'shopify_id': f'MANYCHAT-{phone_clean}'}
+                ]},
+                tenant=tenant
+            ).first()
+            if existing:
+                stats['skipped'] += 1
+                continue
+
+            # Determine tag from semaforo
+            semaforo = semaforo_raw.lower()
+            if 'calificado' in semaforo:
+                tag = 'calificado'
+            elif 'interesado' in semaforo:
+                tag = 'interesado'
+            else:
+                tag = 'poco-interesado'
+
+            # Create customer
+            customer = ShopifyCustomer(
+                name=name,
+                phone=phone_clean,
+                address_city=city or None,
+                source='manychat',
+                shopify_id=f'MANYCHAT-{phone_clean}',
+                tags=[tag],
+                total_orders=0,
+                total_spent=0,
+                created_at=utc_now(),
+                updated_at=utc_now(),
+                tenant=tenant
+            )
+            customer.save()
+            stats['created'] += 1
+
+            # If calificado AND has products, create pending sale
+            if tag == 'calificado' and productos_raw:
+                try:
+                    sale = Sale(
+                        customer_name=name,
+                        address=lugar_entrega or city or '',
+                        phone=phone_clean,
+                        sale_type='con_despacho',
+                        sales_channel='whatsapp',
+                        delivery_status='pendiente',
+                        payment_status='pendiente',
+                        payment_method=metodo_pago.lower() if metodo_pago else None,
+                        date_created=utc_now(),
+                        tenant=tenant
+                    )
+                    sale.save()
+
+                    # Parse products: "Promo jurel x2 | Caja Mensual x1"
+                    product_entries = [p.strip() for p in productos_raw.split('|') if p.strip()]
+                    notes_lines = []
+
+                    for entry in product_entries:
+                        match = re.match(r'(.+?)\s*x\s*(\d+)$', entry.strip(), re.IGNORECASE)
+                        if match:
+                            prod_name = match.group(1).strip()
+                            qty = int(match.group(2))
+                        else:
+                            prod_name = entry.strip()
+                            qty = 1
+
+                        # Search product by name
+                        product = Product.objects(tenant=tenant, name__icontains=prod_name).first()
+
+                        if product:
+                            SaleItem(
+                                sale=sale,
+                                product=product,
+                                quantity=qty,
+                                unit_price=float(product.base_price) if product.base_price else 0
+                            ).save()
+                        else:
+                            notes_lines.append(f'Producto no encontrado: {entry}')
+
+                    if notes_lines:
+                        sale.delivery_observations = '\n'.join(notes_lines)
+                        sale.save()
+
+                    stats['sales_created'] += 1
+                except Exception as e:
+                    stats['errors'].append(f'Error creando venta para {name}: {str(e)}')
+
+        except Exception as e:
+            stats['errors'].append(f'Fila {idx + 2}: {str(e)}')
+
+    return jsonify(stats)
