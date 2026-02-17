@@ -1,6 +1,6 @@
 # TODO — SIPUD
 
-> **Última actualización:** 2026-02-09
+> **Última actualización:** 2026-02-17
 > **Estado:** En producción ✅
 
 ---
@@ -44,9 +44,13 @@
 - [ ] Exportable a Excel/PDF
 
 ### 5. Mejora Recepción de Mercancía
-**Estado:** 🔴 Pendiente
-- [ ] Revisar módulo actual de órdenes de entrada
-- [ ] Consolidar proceso de recepción
+**Estado:** ✅ Completado (2026-02-11)
+- [x] Revisar módulo actual de órdenes de entrada
+- [x] Consolidar proceso de recepción (line items, recepción parcial, costos)
+- [x] Proveedores integrados con dropdown + creación rápida
+- [x] Lot codes legibles (LOT-PROV-SKU-FECHA-UUID)
+- [x] Modal resumen post-recepción con tabla de lotes
+- [x] Toasts en lugar de alert() en orders y receiving
 - [ ] Posible conexión con Sheet externo
 
 ### 6. Notificaciones por Correo (Consolidado)
@@ -270,12 +274,15 @@ _Ninguno reportado actualmente_
 
 - [x] Deploy en VPS Hetzner (sipud.cloud)
 - [x] Sprint Mejoras Ventas (campo sales_channel, filtros, cuadratura)
-- [x] Actualización dependencias + tests (37 tests)
+- [x] Actualización dependencias + tests
 - [x] Fix datetime.utcnow() deprecated
 - [x] Sync Shopify con preview
 - [x] Sistema de pagos múltiples
 - [x] Importación clientes desde Excel
 - [x] Logging en exception handlers (2026-02-09)
+- [x] Mejora Recepción de Mercancía — line items, recepción parcial, costos, proveedores integrados (2026-02-11)
+- [x] Cuadratura Bancaria — permisos ROLE_PERMISSIONS, validación montos, Payment al conciliar/deshacer, ActivityLog, toasts, export Excel, batch ignore, búsqueda, detección duplicados importación (2026-02-17)
+- [x] Tests ampliados: 50 tests pasando (2026-02-17)
 
 ---
 
@@ -290,5 +297,6 @@ _Ninguno reportado actualmente_
 
 ## 🎯 Siguiente Acción Sugerida
 
-**Opción rápida:** Tarea 2 (arreglar except:pass) — mejora estabilidad
-**Opción visible:** Tarea 6 (dashboard) — impacto visual alto
+**Opción rápida:** Tarea 3 (backup automático) — protección de datos
+**Opción visible:** Tarea 6 (dashboard mejorado) — impacto visual alto
+**Opción estratégica:** Tarea 4 (flujo de caja) — valor de negocio
