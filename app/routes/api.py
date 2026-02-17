@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, g, abort, current_app
 from flask_login import current_user, login_required
-from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment, Tenant, Wastage, User, utc_now
+from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment, Tenant, Wastage, User, utc_now, ShopifyCustomer, SALES_CHANNELS
 from app.extensions import limiter
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -531,6 +531,172 @@ def get_dashboard_stats():
             'values': chart_values,
             'keys': chart_keys
         }
+    })
+
+
+@bp.route('/dashboard/finances', methods=['GET'])
+@login_required
+def get_dashboard_finances():
+    tenant = g.current_tenant
+
+    now = datetime.utcnow()
+    current_month_start = datetime.combine(now.date().replace(day=1), datetime.min.time())
+    next_month = current_month_start + relativedelta(months=1)
+    prev_month_start = current_month_start - relativedelta(months=1)
+    prev_month_end = current_month_start
+
+    # === Comparison: current vs previous month ===
+    current_sales = Sale.objects(tenant=tenant, date_created__gte=current_month_start, date_created__lt=next_month)
+    prev_sales = Sale.objects(tenant=tenant, date_created__gte=prev_month_start, date_created__lt=prev_month_end)
+
+    def calc_revenue(sales_qs):
+        total = 0
+        for sale in sales_qs:
+            for item in sale.items:
+                total += item.quantity * float(item.unit_price)
+        return total
+
+    current_count = current_sales.count()
+    prev_count = prev_sales.count()
+    current_revenue = calc_revenue(current_sales)
+    prev_revenue = calc_revenue(prev_sales)
+
+    sales_change_pct = ((current_count - prev_count) / prev_count * 100) if prev_count > 0 else (100.0 if current_count > 0 else 0)
+    revenue_change_pct = ((current_revenue - prev_revenue) / prev_revenue * 100) if prev_revenue > 0 else (100.0 if current_revenue > 0 else 0)
+
+    # === Sales by channel ===
+    by_channel = {}
+    for channel_key in SALES_CHANNELS:
+        channel_sales = Sale.objects(tenant=tenant, date_created__gte=current_month_start, date_created__lt=next_month, sales_channel=channel_key)
+        count = channel_sales.count()
+        revenue = calc_revenue(channel_sales)
+        by_channel[channel_key] = {'count': count, 'revenue': revenue}
+
+    # === Pending payments ===
+    unpaid_sales = Sale.objects(tenant=tenant, payment_status__in=['pendiente', 'parcial']).order_by('date_created')
+
+    total_pending = 0
+    unpaid_list = []
+    for sale in unpaid_sales:
+        sale_total = 0
+        for item in sale.items:
+            sale_total += item.quantity * float(item.unit_price)
+        paid = float(sale.total_paid) if hasattr(sale, 'total_paid') else 0
+        pending_amount = sale_total - paid
+        if pending_amount > 0:
+            total_pending += pending_amount
+            days_old = (now - sale.date_created).days if sale.date_created else 0
+            unpaid_list.append({
+                'id': str(sale.id),
+                'customer': sale.customer_name or 'Sin nombre',
+                'total': sale_total,
+                'pending': pending_amount,
+                'days_old': days_old,
+                'status': sale.payment_status
+            })
+
+    avg_age = sum(u['days_old'] for u in unpaid_list) / len(unpaid_list) if unpaid_list else 0
+
+    return jsonify({
+        'success': True,
+        'comparison': {
+            'current_month_sales': current_count,
+            'current_month_revenue': current_revenue,
+            'prev_month_sales': prev_count,
+            'prev_month_revenue': prev_revenue,
+            'sales_change_pct': round(sales_change_pct, 1),
+            'revenue_change_pct': round(revenue_change_pct, 1)
+        },
+        'by_channel': by_channel,
+        'pending_payments': {
+            'total_pending': total_pending,
+            'count': len(unpaid_list),
+            'avg_age_days': round(avg_age, 1),
+            'oldest_unpaid': unpaid_list[:5]
+        }
+    })
+
+
+@bp.route('/dashboard/operations', methods=['GET'])
+@login_required
+def get_dashboard_operations():
+    tenant = g.current_tenant
+
+    now = datetime.utcnow()
+    current_month_start = datetime.combine(now.date().replace(day=1), datetime.min.time())
+    next_month = current_month_start + relativedelta(months=1)
+    prev_month_start = current_month_start - relativedelta(months=1)
+
+    # === New customers this month vs previous ===
+    current_customers = ShopifyCustomer.objects(
+        tenant=tenant,
+        created_at__gte=current_month_start,
+        created_at__lt=next_month
+    ).count()
+
+    prev_customers = ShopifyCustomer.objects(
+        tenant=tenant,
+        created_at__gte=prev_month_start,
+        created_at__lt=current_month_start
+    ).count()
+
+    customers_change_pct = ((current_customers - prev_customers) / prev_customers * 100) if prev_customers > 0 else (100.0 if current_customers > 0 else 0)
+
+    # === Critical stock (all products below minimum) ===
+    critical_stock = []
+    for p in Product.objects(tenant=tenant):
+        if hasattr(p, 'total_stock') and hasattr(p, 'critical_stock'):
+            if p.total_stock <= p.critical_stock:
+                critical_stock.append({
+                    'id': str(p.id),
+                    'name': p.name,
+                    'stock': p.total_stock,
+                    'critical': p.critical_stock,
+                    'sku': p.sku or ''
+                })
+
+    # === Pending inbound orders ===
+    pending_orders = []
+    for order in InboundOrder.objects(tenant=tenant, status='pending').order_by('-created_at').limit(10):
+        supplier_name = order.supplier_name
+        if not supplier_name and order.supplier:
+            try:
+                supplier_name = order.supplier.name
+            except Exception:
+                supplier_name = 'Sin proveedor'
+        pending_orders.append({
+            'id': str(order.id),
+            'supplier': supplier_name or 'Sin proveedor',
+            'status': order.status,
+            'created_at': order.created_at.strftime('%Y-%m-%d') if order.created_at else '',
+            'total': float(order.total) if order.total else 0
+        })
+
+    # === Recent sales (last 10) ===
+    recent_sales = []
+    for sale in Sale.objects(tenant=tenant).order_by('-date_created').limit(10):
+        sale_total = 0
+        for item in sale.items:
+            sale_total += item.quantity * float(item.unit_price)
+        recent_sales.append({
+            'id': str(sale.id),
+            'customer': sale.customer_name or 'Sin nombre',
+            'total': sale_total,
+            'status': sale.status,
+            'channel': sale.sales_channel or 'manual',
+            'date': sale.date_created.strftime('%Y-%m-%d') if sale.date_created else ''
+        })
+
+    return jsonify({
+        'success': True,
+        'new_customers': {
+            'current_month': current_customers,
+            'prev_month': prev_customers,
+            'change_pct': round(customers_change_pct, 1)
+        },
+        'critical_stock': critical_stock,
+        'pending_orders': pending_orders,
+        'recent_sales': recent_sales
     })
 
 

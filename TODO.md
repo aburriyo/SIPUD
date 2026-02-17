@@ -21,21 +21,21 @@
 - [ ] Considerar campos adicionales (cliente mayorista, condiciones)
 
 ### 3. Integración Google Sheets (CRM → Clientes)
-**Estado:** 🔴 Pendiente
+**Estado:** ✅ Completado (2026-02-17)
 
 **Contexto:** El Sheet tiene un sistema de semáforo para leads:
 - 🔴 Poco interesados
-- 🟡 Interesados  
+- 🟡 Interesados
 - 🟢 **Calificados** ← estos se importan a SIPUD
 
 **Tareas:**
-- [ ] Obtener acceso al Sheet actual
-- [ ] Mapear columnas del Sheet → campos de Cliente en SIPUD
-- [ ] Implementar lectura de Sheet (API Google Sheets)
-- [ ] Filtrar solo leads "Calificados" (semáforo verde)
-- [ ] Crear/actualizar clientes en SIPUD automáticamente
-- [ ] Evitar duplicados (match por email/teléfono)
-- [ ] UI para ver estado de sync y logs
+- [x] Obtener acceso al Sheet actual
+- [x] Mapear columnas del Sheet → campos de Cliente en SIPUD
+- [x] Implementar lectura de Sheet (API Google Sheets)
+- [x] Filtrar solo leads "Calificados" (semáforo verde)
+- [x] Crear/actualizar clientes en SIPUD automáticamente
+- [x] Evitar duplicados (match por email/teléfono)
+- [x] UI para ver estado de sync y logs (botón ManyChat en Clientes)
 
 ### 4. Flujo de Caja
 **Estado:** 🔴 Pendiente
@@ -137,39 +137,6 @@
 
 **Requiere:** Datos históricos suficientes para hacer proyecciones confiables
 
----
-
-## 🌐 Web puertodistribucion.cl
-
-### 6. URLs Rotas (404)
-**Estado:** 🔴 Pendiente
-- [ ] Auditar sitio completo para encontrar URLs rotas
-- [ ] Identificar enlaces internos rotos
-- [ ] Configurar redirecciones 301 donde corresponda
-- [ ] Implementar página 404 personalizada
-
-### 7. SEO y Posicionamiento
-**Estado:** 🔴 Pendiente
-- [ ] Auditoría SEO completa del sitio
-- [ ] Optimizar meta titles y descriptions
-- [ ] Revisar estructura de URLs (slugs amigables)
-- [ ] Agregar schema markup (productos, negocio local)
-- [ ] Optimizar imágenes (alt text, compresión)
-- [ ] Revisar velocidad de carga (Core Web Vitals)
-- [ ] Crear/actualizar sitemap.xml
-- [ ] Configurar Google Search Console
-- [ ] Investigar keywords para otras áreas/búsquedas
-- [ ] Considerar contenido de blog para posicionamiento
-
-### 8. Revisión General Shopify
-**Estado:** 🔴 Pendiente
-- [ ] Revisar configuración actual de la tienda
-- [ ] Verificar productos y precios actualizados
-- [ ] Revisar flujo de checkout
-- [ ] Verificar métodos de pago activos
-- [ ] Revisar políticas (envío, devoluciones)
-- [ ] Modificaciones pendientes según feedback cliente
-
 ### 2. Arreglar errores silenciosos
 **Estado:** ✅ Completado (2026-02-09)
 **Commit:** c6834c9
@@ -213,13 +180,17 @@ Archivos arreglados:
 ## ✨ Features Nuevas
 
 ### 6. Dashboard mejorado
-**Estado:** ⏳ Pendiente
+**Estado:** ✅ Completado (2026-02-17)
 **Valor:** Alto — primera impresión del sistema
-- [ ] Gráfico de ventas últimos 7/30 días (Chart.js)
-- [ ] Top 5 productos más vendidos
-- [ ] Comparativa con período anterior (%)
-- [ ] Total clientes nuevos del mes
-- [ ] Alertas de stock bajo
+- [x] Gráfico de ventas últimos 7/30 días (Chart.js)
+- [x] Top 5 productos más vendidos
+- [x] Comparativa con período anterior (%)
+- [x] Total clientes nuevos del mes
+- [x] Alertas de stock bajo
+- [x] 3 tabs: Resumen, Finanzas, Operaciones (lazy load)
+- [x] Ventas por canal (bar chart)
+- [x] Pagos pendientes + lista impagas más antiguas
+- [x] Tabla últimas 10 ventas con canal y estado
 
 ### 7. Notificaciones automáticas
 **Estado:** ⏳ Pendiente
@@ -283,6 +254,8 @@ _Ninguno reportado actualmente_
 - [x] Mejora Recepción de Mercancía — line items, recepción parcial, costos, proveedores integrados (2026-02-11)
 - [x] Cuadratura Bancaria — permisos ROLE_PERMISSIONS, validación montos, Payment al conciliar/deshacer, ActivityLog, toasts, export Excel, batch ignore, búsqueda, detección duplicados importación (2026-02-17)
 - [x] Tests ampliados: 50 tests pasando (2026-02-17)
+- [x] Dashboard mejorado — 3 tabs (Resumen/Finanzas/Operaciones), lazy load, comparativa mes, ventas por canal, pagos pendientes, clientes nuevos, stock crítico expandido (2026-02-17)
+- [x] Integración Google Sheets/ManyChat — service account, lectura Sheet, sync leads con semáforo, dedup por teléfono, creación ventas automática, botón UI (2026-02-17)
 
 ---
 
