@@ -150,10 +150,10 @@ Archivos arreglados:
 - [x] `app/routes/customers.py` — OK
 
 ### 3. Backup automático
-**Estado:** 🔴 Pendiente
-- [ ] Crear script `scripts/backup_mongo.sh`
+**Estado:** ✅ Completado (2026-02-17)
+- [x] Crear script `scripts/backup_mongo.sh`
+- [x] Compresión tar.gz + rotación últimos 7 días
 - [ ] Configurar cron diario en VPS
-- [ ] Guardar en carpeta con rotación (últimos 7 días)
 - [ ] Opcionalmente subir a S3/GDrive
 
 ---
@@ -161,12 +161,12 @@ Archivos arreglados:
 ## 🛠️ Limpieza Técnica
 
 ### 4. Eliminar código muerto
-**Estado:** ⏳ Pendiente
-- [ ] Eliminar módulo Fleet/Logistics (`models.py`, `api.py`)
-- [ ] Eliminar archivos `.backup`
-- [ ] Eliminar carpeta `migrations/` (SQLite legacy)
-- [ ] Limpiar `scripts/` — scripts obsoletos
-- [ ] Revisar templates no usados
+**Estado:** ✅ Completado (2026-02-17)
+- [x] Eliminar módulo Fleet/Logistics (`models.py`, `api.py`)
+- [x] Eliminar archivos `.backup`
+- [x] Eliminar carpeta `migrations/` (ya no existía)
+- [x] Limpiar `scripts/` — 5 scripts obsoletos eliminados
+- [x] Revisar templates no usados (todos activos)
 
 ### 5. Mejorar logging
 **Estado:** ⏳ Pendiente
@@ -256,6 +256,8 @@ _Ninguno reportado actualmente_
 - [x] Tests ampliados: 50 tests pasando (2026-02-17)
 - [x] Dashboard mejorado — 3 tabs (Resumen/Finanzas/Operaciones), lazy load, comparativa mes, ventas por canal, pagos pendientes, clientes nuevos, stock crítico expandido (2026-02-17)
 - [x] Integración Google Sheets/ManyChat — service account, lectura Sheet, sync leads con semáforo, dedup por teléfono, creación ventas automática, botón UI (2026-02-17)
+- [x] Limpieza código muerto — Fleet/Logistics models+endpoints, 5 scripts obsoletos, test_fleet.py.old, .bak (2026-02-17)
+- [x] Backup automático — script backup_mongo.sh con compresión y rotación 7 días (2026-02-17)
 
 ---
 

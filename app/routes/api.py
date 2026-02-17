@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, g, abort, current_app
 from flask_login import current_user, login_required
-from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, Truck, VehicleMaintenance, ActivityLog, Payment, Tenant, Wastage, User, utc_now, ShopifyCustomer, SALES_CHANNELS
+from app.models import Product, Sale, SaleItem, Lot, InboundOrder, ProductBundle, ActivityLog, Payment, Tenant, Wastage, User, utc_now, ShopifyCustomer, SALES_CHANNELS
 from app.extensions import limiter
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -1202,61 +1202,6 @@ def get_sale_payments(id):
         'balance_pending': float(sale.balance_pending)
     })
 
-
-# Fleet Management APIs
-@bp.route('/fleet/vehicles', methods=['GET'])
-def get_fleet_vehicles():
-    tenant = g.current_tenant
-    trucks = Truck.objects(tenant=tenant)
-
-    results = []
-    for truck in trucks:
-        results.append({
-            'id': str(truck.id),
-            'license_plate': truck.license_plate,
-            'make_model': truck.make_model,
-            'capacity_kg': truck.capacity_kg,
-            'status': truck.status,
-            'current_lat': truck.current_lat,
-            'current_lng': truck.current_lng,
-            'odometer_km': truck.odometer_km,
-            'last_update': truck.last_update.isoformat() if truck.last_update else None
-        })
-    return jsonify(results)
-
-
-@bp.route('/fleet/vehicles/<id>', methods=['GET'])
-def get_fleet_vehicle(id):
-    tenant = g.current_tenant
-    try:
-        truck = Truck.objects.get(id=ObjectId(id), tenant=tenant)
-    except DoesNotExist:
-        return jsonify({'error': 'Vehículo no encontrado'}), 404
-
-    # Get upcoming maintenances
-    upcoming = VehicleMaintenance.objects(
-        truck=truck,
-        status='pending'
-    ).order_by('scheduled_date').limit(3)
-
-    return jsonify({
-        'id': str(truck.id),
-        'license_plate': truck.license_plate,
-        'make_model': truck.make_model,
-        'capacity_kg': truck.capacity_kg,
-        'status': truck.status,
-        'current_lat': truck.current_lat,
-        'current_lng': truck.current_lng,
-        'odometer_km': truck.odometer_km,
-        'last_maintenance_date': truck.last_maintenance_date.isoformat() if truck.last_maintenance_date else None,
-        'next_maintenance_km': truck.next_maintenance_km,
-        'last_update': truck.last_update.isoformat() if truck.last_update else None,
-        'upcoming_maintenances': [{
-            'type': m.maintenance_type,
-            'scheduled_date': m.scheduled_date.isoformat() if m.scheduled_date else None,
-            'odometer': m.odometer_reading
-        } for m in upcoming]
-    })
 
 
 # ============================================

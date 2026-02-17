@@ -308,7 +308,6 @@ class Sale(db.Document):
 
     # References
     tenant = db.ReferenceField(Tenant)
-    route = db.ReferenceField('LogisticsRoute')  # Fleet - kept disabled but preserved
 
     meta = {'collection': 'sales'}
 
@@ -482,50 +481,6 @@ class ActivityLog(db.Document):
         log_entry.save()
         return log_entry
 
-
-# ============================================
-# FLEET/LOGISTICS - DISABLED BUT PRESERVED
-# ============================================
-# These models are kept for future implementation
-# but are not actively used in the application
-
-class Truck(db.Document):
-    license_plate = db.StringField(max_length=20, unique=True, required=True)
-    make_model = db.StringField(max_length=100)
-    capacity_kg = db.FloatField()
-    status = db.StringField(max_length=20, default='available')  # available, on_route, maintenance
-    tenant = db.ReferenceField(Tenant)
-    current_lat = db.FloatField()
-    current_lng = db.FloatField()
-    last_update = db.DateTimeField()
-    odometer_km = db.IntField(default=0)
-    last_maintenance_date = db.DateField()
-    next_maintenance_km = db.IntField()
-    meta = {'collection': 'trucks'}
-
-
-class VehicleMaintenance(db.Document):
-    """Vehicle maintenance records and scheduling"""
-    truck = db.ReferenceField(Truck, required=True)
-    maintenance_type = db.StringField(max_length=50)  # oil_change, preventive, tire_rotation, inspection, repair
-    scheduled_date = db.DateField()
-    completed_date = db.DateField()
-    odometer_reading = db.IntField()
-    cost = db.DecimalField(precision=2, default=0)
-    notes = db.StringField()
-    status = db.StringField(max_length=20, default='pending')  # pending, completed, overdue
-    tenant = db.ReferenceField(Tenant)
-    created_at = db.DateTimeField(default=utc_now)
-    meta = {'collection': 'vehicle_maintenances'}
-
-
-class LogisticsRoute(db.Document):
-    driver = db.ReferenceField(User)
-    truck = db.ReferenceField(Truck)
-    start_time = db.DateTimeField()
-    end_time = db.DateTimeField()
-    status = db.StringField(max_length=20, default='planned')  # planned, in_transit, completed
-    meta = {'collection': 'logistics_routes'}
 
 
 # ============================================

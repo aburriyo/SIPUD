@@ -49,3 +49,6 @@ htmlcov/
 
 # Credentials
 credentials/
+
+# Backups
+backups/
