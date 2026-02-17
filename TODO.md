@@ -38,10 +38,13 @@
 - [x] UI para ver estado de sync y logs (botón ManyChat en Clientes)
 
 ### 4. Flujo de Caja
-**Estado:** 🔴 Pendiente
-- [ ] Diseñar reporte de flujo de caja
-- [ ] Basado en ventas + pagos registrados
-- [ ] Exportable a Excel/PDF
+**Estado:** ✅ Completado (2026-02-17)
+- [x] Vista /reports/cashflow con cards resumen, gráfico Chart.js, tablas detalle
+- [x] API /reports/cashflow/api con filtros fecha, agrupación día/semana/mes
+- [x] Ingresos (Payment) + Egresos (InboundOrder) + Balance acumulado + Por cobrar
+- [x] Exportable a Excel (3 hojas: Resumen, Ingresos, Egresos)
+- [x] Atajos rápidos: 7 días, Este mes, 3 meses, Este año
+- [x] Link en sidebar para admin/manager
 
 ### 5. Mejora Recepción de Mercancía
 **Estado:** ✅ Completado (2026-02-11)
@@ -258,6 +261,7 @@ _Ninguno reportado actualmente_
 - [x] Integración Google Sheets/ManyChat — service account, lectura Sheet, sync leads con semáforo, dedup por teléfono, creación ventas automática, botón UI (2026-02-17)
 - [x] Limpieza código muerto — Fleet/Logistics models+endpoints, 5 scripts obsoletos, test_fleet.py.old, .bak (2026-02-17)
 - [x] Backup automático — script backup_mongo.sh con compresión y rotación 7 días (2026-02-17)
+- [x] Flujo de Caja — vista completa con gráfico, cards, detalle ingresos/egresos, export Excel, atajos de fecha (2026-02-17)
 
 ---
 
