@@ -78,6 +78,7 @@ def get_customers():
     
     # Get query parameters
     search = request.args.get('q', '').strip()
+    tag_filter = request.args.get('tag', '').strip()
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 50))
     
@@ -94,7 +95,10 @@ def get_customers():
         ).order_by('-total_spent')
     else:
         customers = ShopifyCustomer.objects(tenant=tenant).order_by('-total_spent')
-    
+
+    if tag_filter:
+        customers = customers.filter(tags=tag_filter)
+
     # Pagination
     total = customers.count()
     customers = customers.skip((page - 1) * per_page).limit(per_page)
@@ -114,6 +118,7 @@ def get_customers():
             'total_spent': float(c.total_spent) if c.total_spent else 0,
             'last_order_date': c.last_order_date.strftime('%Y-%m-%d') if c.last_order_date else None,
             'created_at': c.created_at.strftime('%Y-%m-%d') if c.created_at else None,
+            'tags': c.tags or [],
         })
     
     return jsonify({
@@ -541,6 +546,29 @@ def api_import_customers_v2():
         return jsonify({'error': f'Error al procesar archivo: {str(e)}'}), 500
 
 
+@bp.route('/api/customers/<customer_id>/tags', methods=['PUT'])
+@login_required
+@permission_required('customers', 'edit')
+def update_customer_tags(customer_id):
+    """Update customer tags"""
+    tenant = g.current_tenant
+    data = request.get_json()
+
+    if not data or 'tags' not in data:
+        return jsonify({'error': 'Tags requeridos'}), 400
+
+    try:
+        customer = ShopifyCustomer.objects.get(id=ObjectId(customer_id), tenant=tenant)
+    except Exception:
+        return jsonify({'error': 'Cliente no encontrado'}), 404
+
+    customer.tags = [t.strip().lower() for t in data['tags'] if t.strip()]
+    customer.updated_at = utc_now()
+    customer.save()
+
+    return jsonify({'success': True, 'tags': customer.tags})
+
+
 @bp.route('/api/customers/sync', methods=['POST'])
 @login_required
 @permission_required('customers', 'sync')
@@ -612,7 +640,8 @@ def sync_shopify():
                         customer.address_city = default_address.get('city')
                         customer.address_province = default_address.get('province')
                         customer.address_country = default_address.get('country')
-                        customer.tags = customer_data.get('tags')
+                        raw_tags = customer_data.get('tags', '')
+                        customer.tags = [t.strip().lower() for t in raw_tags.split(',') if t.strip()] if raw_tags else []
                         customer.total_orders = customer_data.get('orders_count', 0)
                         customer.total_spent = float(customer_data.get('total_spent', 0))
                         
