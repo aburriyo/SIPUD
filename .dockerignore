@@ -3,9 +3,6 @@ __pycache__
 *.pyo
 .git
 .gitignore
-.env
-.env.*
-!.env.example
 venv/
 .venv/
 *.md
@@ -19,3 +16,7 @@ ___documentos/
 .vscode/
 .idea/
 node_modules/
+docs/
+tests/
+scripts/
+*.log
