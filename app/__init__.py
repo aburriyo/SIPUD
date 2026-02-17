@@ -53,6 +53,7 @@ def create_app(config_class=Config):
             "completed": "completado",
             "overdue": "vencido",
             "received": "recibido",
+            "partially_received": "Parcial",
             "paid": "pagado",
 
             # New delivery statuses
@@ -81,6 +82,7 @@ def create_app(config_class=Config):
             "whatsapp": "WhatsApp",
             "shopify": "Shopify",
             "web": "Web",
+            "mayorista": "Mayorista",
         }
         return translations.get(channel, channel or "Manual")
 

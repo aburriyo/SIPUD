@@ -13,7 +13,7 @@
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mt-6">
         <h2 class="text-lg font-bold text-slate-900 mb-4">Pedidos Pendientes de Recepción</h2>
-        
+
         <div class="space-y-4" x-show="orders.length > 0">
             <template x-for="order in orders" :key="order.id">
                 <div class="border border-slate-200 rounded-lg p-4 hover:border-primary-300 transition-colors">
@@ -24,11 +24,40 @@
                             <p class="text-xs text-slate-500" x-text="'Fecha: ' + order.created_at"></p>
                             <p class="text-sm font-medium text-slate-700 mt-1" x-text="'Total: $' + (order.total || 0).toLocaleString('es-CL')"></p>
                         </div>
-                        <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                            Pendiente
+                        <span class="px-3 py-1 rounded-full text-xs font-medium"
+                            :class="{
+                                'bg-yellow-100 text-yellow-800': order.status === 'pending',
+                                'bg-orange-100 text-orange-800': order.status === 'partially_received'
+                            }"
+                            x-text="order.status === 'partially_received' ? 'Parcial' : 'Pendiente'">
                         </span>
                     </div>
-                    
+
+                    <!-- Progreso de line items si existen -->
+                    <template x-if="order.line_items && order.line_items.length > 0">
+                        <div class="mb-3 space-y-1">
+                            <p class="text-xs font-medium text-slate-500 uppercase">Productos esperados:</p>
+                            <template x-for="li in order.line_items" :key="li.product_id">
+                                <div class="flex items-center gap-2 text-xs">
+                                    <span class="text-slate-700" x-text="li.product_name"></span>
+                                    <span class="text-slate-400">-</span>
+                                    <span class="font-medium" :class="{
+                                        'text-emerald-600': li.quantity_received >= li.quantity_ordered,
+                                        'text-orange-600': li.quantity_received > 0 && li.quantity_received < li.quantity_ordered,
+                                        'text-slate-600': li.quantity_received === 0
+                                    }" x-text="li.quantity_received + '/' + li.quantity_ordered"></span>
+                                    <div class="flex-1 bg-slate-200 rounded-full h-1.5 max-w-[80px]">
+                                        <div class="h-1.5 rounded-full transition-all" :class="{
+                                            'bg-emerald-500': li.quantity_received >= li.quantity_ordered,
+                                            'bg-orange-400': li.quantity_received > 0 && li.quantity_received < li.quantity_ordered,
+                                            'bg-slate-300': li.quantity_received === 0
+                                        }" :style="'width:' + Math.min(100, (li.quantity_received / li.quantity_ordered * 100)) + '%'"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
                     <div class="mt-4 flex flex-col sm:flex-row gap-3">
                         <button @click="openReceivingModal(order)"
                             class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors">
@@ -42,7 +71,7 @@
                 </div>
             </template>
         </div>
-        
+
         <div x-show="orders.length === 0" class="text-center py-12">
             <svg class="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -57,21 +86,27 @@
         x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100" @click.self="closeModal()">
         <div class="fixed inset-0 bg-slate-900/50"></div>
-        
+
         <div class="flex min-h-full items-center justify-center p-4">
-            <div class="relative bg-white rounded-xl shadow-xl max-w-4xl w-full p-4 sm:p-6" @click.stop>
+            <div class="relative bg-white rounded-xl shadow-xl max-w-4xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto" @click.stop>
                 <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-4">
                     <span x-text="'Confirmar Recepción - Pedido #' + (selectedOrder?.id || '')"></span>
                 </h2>
-                
+
                 <div class="mb-4 p-4 bg-slate-50 rounded-lg">
-                    <p class="text-sm text-slate-600">
-                        <span class="font-medium">Proveedor:</span>
-                        <span x-text="selectedOrder?.supplier || 'Sin proveedor'"></span>
-                    </p>
-                    <p class="text-sm text-slate-600">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-600">
+                        <p>
+                            <span class="font-medium">Proveedor:</span>
+                            <span x-text="selectedOrder?.supplier || 'Sin proveedor'"></span>
+                        </p>
+                        <p>
+                            <span class="font-medium">Total esperado:</span>
+                            <span x-text="'$' + (selectedOrder?.total || 0).toLocaleString('es-CL')"></span>
+                        </p>
+                    </div>
+                    <p class="text-sm text-slate-600 mt-1" x-show="selectedOrder?.notes">
                         <span class="font-medium">Notas:</span>
-                        <span x-text="selectedOrder?.notes || 'Sin notas'"></span>
+                        <span x-text="selectedOrder?.notes"></span>
                     </p>
                 </div>
 
@@ -91,12 +126,26 @@
                     <div class="space-y-3">
                         <template x-for="(item, index) in receivingProducts" :key="index">
                             <div class="p-3 bg-slate-50 rounded-lg">
+                                <!-- Barra de progreso si viene de line item -->
+                                <template x-if="item._ordered > 0">
+                                    <div class="mb-2 flex items-center gap-2 text-xs">
+                                        <span class="text-slate-500">Pedido:</span>
+                                        <span class="font-medium" x-text="item._already_received + '/' + item._ordered + ' recibidos'"></span>
+                                        <div class="flex-1 bg-slate-200 rounded-full h-1.5 max-w-[100px]">
+                                            <div class="h-1.5 rounded-full bg-emerald-500 transition-all"
+                                                :style="'width:' + Math.min(100, (item._already_received / item._ordered * 100)) + '%'"></div>
+                                        </div>
+                                        <span class="text-slate-400" x-text="'Falta: ' + Math.max(0, item._ordered - item._already_received)"></span>
+                                    </div>
+                                </template>
+
                                 <!-- Desktop Grid View -->
                                 <div class="hidden sm:grid sm:grid-cols-12 gap-3 items-end">
-                                    <div class="col-span-4">
+                                    <div class="col-span-3">
                                         <label class="block text-xs font-medium text-slate-700 mb-1">Producto</label>
-                                        <select x-model="item.product_id" 
-                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                        <select x-model="item.product_id"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                            :disabled="item._fromLineItem">
                                             <option value="">Seleccione...</option>
                                             <template x-for="product in products" :key="product.id">
                                                 <option :value="product.id" x-text="product.name"></option>
@@ -108,11 +157,16 @@
                                         <input type="number" x-model="item.quantity" min="1"
                                             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                                     </div>
-                                    <div class="col-span-3">
-                                        <label class="block text-xs font-medium text-slate-700 mb-1">Código de Lote</label>
-                                        <input type="text" x-model="item.lot_code" 
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Costo unit. $</label>
+                                        <input type="number" x-model="item.unit_cost" min="0" step="1"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-700 mb-1">Código Lote</label>
+                                        <input type="text" x-model="item.lot_code"
                                             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                            placeholder="LOT-001">
+                                            placeholder="Auto">
                                     </div>
                                     <div class="col-span-2">
                                         <label class="block text-xs font-medium text-slate-700 mb-1">Vencimiento</label>
@@ -133,8 +187,9 @@
                                 <div class="sm:hidden space-y-3">
                                     <div>
                                         <label class="block text-xs font-medium text-slate-700 mb-1">Producto</label>
-                                        <select x-model="item.product_id" 
-                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                        <select x-model="item.product_id"
+                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                                            :disabled="item._fromLineItem">
                                             <option value="">Seleccione...</option>
                                             <template x-for="product in products" :key="product.id">
                                                 <option :value="product.id" x-text="product.name"></option>
@@ -145,19 +200,25 @@
                                         <div>
                                             <label class="block text-xs font-medium text-slate-700 mb-1">Cantidad</label>
                                             <input type="number" x-model="item.quantity" min="1"
-                                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-700 mb-1">Costo unit. $</label>
+                                            <input type="number" x-model="item.unit_cost" min="0" step="1"
+                                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-700 mb-1">Código Lote</label>
+                                            <input type="text" x-model="item.lot_code" placeholder="Auto"
+                                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-slate-700 mb-1">Vencimiento</label>
                                             <input type="date" x-model="item.expiry_date"
-                                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-medium text-slate-700 mb-1">Código de Lote</label>
-                                        <input type="text" x-model="item.lot_code" 
-                                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                            placeholder="LOT-001">
                                     </div>
                                     <button @click="removeProductLine(index)"
                                         class="w-full px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm transition-colors font-medium">
@@ -172,21 +233,104 @@
                         No hay productos agregados. Haz clic en "Agregar Producto" para comenzar.
                     </p>
                 </div>
-                
+
                 <div class="flex flex-col sm:flex-row justify-end gap-3 mt-6">
                     <button @click="closeModal()"
                         class="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors">
                         Cancelar
                     </button>
                     <button @click="confirmReceiving()"
-                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors">
+                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-medium">
                         Confirmar Recepción
                     </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Modal Resumen Post-Recepción -->
+    <div x-show="showSummaryModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;"
+        x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100">
+        <div class="fixed inset-0 bg-slate-900/50"></div>
+
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative bg-white rounded-xl shadow-xl max-w-2xl w-full p-4 sm:p-6" @click.stop id="receiptSummary">
+                <div class="text-center mb-4">
+                    <div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-900">Recepción Confirmada</h2>
+                    <p class="text-sm text-slate-500 mt-1">
+                        Pedido <span class="font-medium" x-text="'#' + (summaryData?.order_id || '')"></span>
+                        - <span x-text="summaryData?.status === 'partially_received' ? 'Parcialmente recibido' : 'Recibido completamente'"></span>
+                    </p>
+                </div>
+
+                <!-- Tabla de lotes creados -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200">
+                                <th class="text-left py-2 px-2 text-xs font-medium text-slate-500 uppercase">Lote</th>
+                                <th class="text-left py-2 px-2 text-xs font-medium text-slate-500 uppercase">Producto</th>
+                                <th class="text-right py-2 px-2 text-xs font-medium text-slate-500 uppercase">Cant.</th>
+                                <th class="text-right py-2 px-2 text-xs font-medium text-slate-500 uppercase">Costo</th>
+                                <th class="text-right py-2 px-2 text-xs font-medium text-slate-500 uppercase">Subtotal</th>
+                                <th class="text-left py-2 px-2 text-xs font-medium text-slate-500 uppercase">Vence</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="lot in summaryData?.lots || []" :key="lot.lot_code">
+                                <tr class="border-b border-slate-100">
+                                    <td class="py-2 px-2 font-mono text-xs text-slate-600" x-text="lot.lot_code"></td>
+                                    <td class="py-2 px-2 text-slate-900" x-text="lot.product_name"></td>
+                                    <td class="py-2 px-2 text-right font-medium" x-text="lot.quantity"></td>
+                                    <td class="py-2 px-2 text-right text-slate-600" x-text="'$' + (lot.unit_cost || 0).toLocaleString('es-CL')"></td>
+                                    <td class="py-2 px-2 text-right font-medium" x-text="'$' + ((lot.quantity * (lot.unit_cost || 0))).toLocaleString('es-CL')"></td>
+                                    <td class="py-2 px-2 text-slate-500 text-xs" x-text="lot.expiry_date || '-'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t-2 border-slate-300">
+                                <td colspan="2" class="py-2 px-2 font-bold text-slate-900">Total</td>
+                                <td class="py-2 px-2 text-right font-bold" x-text="summaryData?.lots?.reduce((s, l) => s + l.quantity, 0) || 0"></td>
+                                <td class="py-2 px-2"></td>
+                                <td class="py-2 px-2 text-right font-bold text-emerald-600" x-text="'$' + (summaryData?.lots?.reduce((s, l) => s + l.quantity * (l.unit_cost || 0), 0) || 0).toLocaleString('es-CL')"></td>
+                                <td class="py-2 px-2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="flex flex-col sm:flex-row justify-end gap-3 mt-6 print:hidden">
+                    <button @click="printSummary()"
+                        class="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                        </svg>
+                        Imprimir
+                    </button>
+                    <button @click="closeSummary()"
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors font-medium">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<style>
+@media print {
+    body > * { display: none !important; }
+    #receiptSummary { display: block !important; position: static !important; }
+    .print\\:hidden { display: none !important; }
+}
+</style>
 
 <script>
 function receivingPage() {
@@ -196,12 +340,14 @@ function receivingPage() {
         showModal: false,
         selectedOrder: null,
         receivingProducts: [],
-        
+        showSummaryModal: false,
+        summaryData: null,
+
         async init() {
             await this.loadOrders();
             await this.loadProducts();
         },
-        
+
         async loadOrders() {
             try {
                 const response = await fetch('/warehouse/api/receiving/orders');
@@ -213,12 +359,11 @@ function receivingPage() {
                 console.error('Error loading orders:', error);
             }
         },
-        
+
         async loadProducts() {
             try {
                 const response = await fetch('/api/products');
                 const data = await response.json();
-                // La API retorna directamente un array de productos, no un objeto {success, products}
                 if (Array.isArray(data)) {
                     this.products = data;
                 } else if (data.success && data.products) {
@@ -228,64 +373,109 @@ function receivingPage() {
                 console.error('Error loading products:', error);
             }
         },
-        
+
         openReceivingModal(order) {
             this.selectedOrder = order;
-            this.receivingProducts = [];
+
+            // Si la orden tiene line_items, pre-llenar el grid
+            if (order.line_items && order.line_items.length > 0) {
+                this.receivingProducts = order.line_items
+                    .filter(li => (li.quantity_received || 0) < li.quantity_ordered)
+                    .map(li => ({
+                        product_id: li.product_id,
+                        quantity: Math.max(0, li.quantity_ordered - (li.quantity_received || 0)),
+                        unit_cost: li.unit_cost || 0,
+                        lot_code: '',
+                        expiry_date: '',
+                        _fromLineItem: true,
+                        _ordered: li.quantity_ordered,
+                        _already_received: li.quantity_received || 0
+                    }));
+            } else {
+                this.receivingProducts = [];
+            }
+
             this.showModal = true;
         },
-        
+
         addProductLine() {
             this.receivingProducts.push({
                 product_id: '',
                 quantity: 1,
-                lot_code: `LOT-${Date.now()}`,
-                expiry_date: ''
+                unit_cost: 0,
+                lot_code: '',
+                expiry_date: '',
+                _fromLineItem: false,
+                _ordered: 0,
+                _already_received: 0
             });
         },
-        
+
         removeProductLine(index) {
             this.receivingProducts.splice(index, 1);
         },
-        
+
         async confirmReceiving() {
             if (this.receivingProducts.length === 0) {
-                alert('Debes agregar al menos un producto');
+                this.$dispatch('toast', { message: 'Debes agregar al menos un producto', type: 'error' });
                 return;
             }
-            
-            // Validar que todos los productos tengan datos completos
+
             for (let item of this.receivingProducts) {
                 if (!item.product_id || !item.quantity || item.quantity <= 0) {
-                    alert('Todos los productos deben tener producto y cantidad válidos');
+                    this.$dispatch('toast', { message: 'Todos los productos deben tener producto y cantidad válidos', type: 'error' });
                     return;
                 }
             }
-            
+
             try {
                 const response = await fetch(`/warehouse/api/receiving/${this.selectedOrder.id}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        products: this.receivingProducts
+                        products: this.receivingProducts.map(p => ({
+                            product_id: p.product_id,
+                            quantity: p.quantity,
+                            unit_cost: p.unit_cost || 0,
+                            lot_code: p.lot_code || '',
+                            expiry_date: p.expiry_date || ''
+                        }))
                     })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok && data.success) {
-                    alert(data.message);
+                    this.$dispatch('toast', { message: data.message, type: 'success' });
                     this.closeModal();
+
+                    // Mostrar resumen
+                    this.summaryData = {
+                        order_id: this.selectedOrder.id,
+                        status: data.status,
+                        lots: data.lots || []
+                    };
+                    this.showSummaryModal = true;
+
                     await this.loadOrders();
                 } else {
-                    alert('Error: ' + (data.error || 'Error desconocido'));
+                    this.$dispatch('toast', { message: data.error || 'Error desconocido', type: 'error' });
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error de conexión');
+                this.$dispatch('toast', { message: 'Error de conexión', type: 'error' });
             }
         },
-        
+
+        printSummary() {
+            window.print();
+        },
+
+        closeSummary() {
+            this.showSummaryModal = false;
+            this.summaryData = null;
+        },
+
         closeModal() {
             this.showModal = false;
             this.selectedOrder = null;

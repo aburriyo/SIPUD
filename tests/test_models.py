@@ -1,9 +1,12 @@
 """
-Tests básicos para modelos Product, Sale, User
+Tests básicos para modelos Product, Sale, User, InboundOrder, Lot, Supplier
 """
 import pytest
 from datetime import datetime
-from app.models import User, Product, Sale, Tenant, ROLE_PERMISSIONS
+from app.models import (
+    User, Product, Sale, Tenant, ROLE_PERMISSIONS,
+    InboundOrder, InboundOrderLineItem, Lot, Supplier
+)
 
 
 class TestUserModel:
@@ -201,7 +204,7 @@ class TestSaleModel:
         """Test canales de venta válidos"""
         from app.models import SALES_CHANNELS
         
-        expected_channels = ['manual', 'whatsapp', 'shopify', 'web']
+        expected_channels = ['manual', 'whatsapp', 'shopify', 'web', 'mayorista']
         
         for channel in expected_channels:
             assert channel in SALES_CHANNELS
@@ -244,7 +247,133 @@ class TestTenantModel:
             name='Test Company',
             slug='test-company'
         )
-        
+
         # Slug debería ser lowercase, sin espacios
         assert tenant.slug.islower()
         assert ' ' not in tenant.slug
+
+
+class TestInboundOrderLineItem:
+    """Tests para el EmbeddedDocument InboundOrderLineItem"""
+
+    def test_line_item_creation(self):
+        """Test crear line item básico"""
+        product = Product(name='Arroz 5kg', sku='ARR-5K')
+        li = InboundOrderLineItem(
+            product=product,
+            product_name='Arroz 5kg',
+            product_sku='ARR-5K',
+            quantity_ordered=100,
+            quantity_received=0,
+            unit_cost=2500
+        )
+        assert li.product_name == 'Arroz 5kg'
+        assert li.product_sku == 'ARR-5K'
+        assert li.quantity_ordered == 100
+        assert li.quantity_received == 0
+        assert li.unit_cost == 2500
+
+    def test_line_item_defaults(self):
+        """Test valores por defecto de line item"""
+        product = Product(name='Test', sku='T1')
+        li = InboundOrderLineItem(product=product, quantity_ordered=10)
+        assert li.quantity_received == 0
+        assert li.unit_cost == 0
+
+
+class TestInboundOrderModel:
+    """Tests para InboundOrder con line_items y propiedades"""
+
+    def test_order_creation_with_line_items(self):
+        """Test crear orden con line items"""
+        order = InboundOrder(
+            supplier_name='Proveedor Test',
+            invoice_number='FAC-001',
+            status='pending',
+            total=50000
+        )
+        assert order.supplier_name == 'Proveedor Test'
+        assert order.status == 'pending'
+        assert order.line_items == [] or order.line_items is None or len(order.line_items) == 0
+
+    def test_order_has_line_items_field(self):
+        """Test que InboundOrder tiene campo line_items"""
+        assert hasattr(InboundOrder, 'line_items')
+
+    def test_order_partially_received_status(self):
+        """Test que partially_received es un status válido"""
+        order = InboundOrder(
+            supplier_name='Test',
+            status='partially_received'
+        )
+        assert order.status == 'partially_received'
+
+    def test_is_fully_received_property(self):
+        """Test propiedad is_fully_received"""
+        assert hasattr(InboundOrder, 'is_fully_received')
+        assert isinstance(getattr(InboundOrder, 'is_fully_received'), property)
+
+    def test_computed_total_property(self):
+        """Test propiedad computed_total"""
+        assert hasattr(InboundOrder, 'computed_total')
+        assert isinstance(getattr(InboundOrder, 'computed_total'), property)
+
+    def test_is_fully_received_no_items(self):
+        """Test is_fully_received sin line items"""
+        order = InboundOrder(supplier_name='Test', status='received')
+        assert order.is_fully_received is True
+
+        order2 = InboundOrder(supplier_name='Test', status='pending')
+        assert order2.is_fully_received is False
+
+
+class TestLotModel:
+    """Tests para campos nuevos en Lot"""
+
+    def test_lot_has_unit_cost(self):
+        """Test que Lot tiene campo unit_cost"""
+        product = Product(name='Test', sku='T1')
+        lot = Lot(
+            product=product,
+            lot_code='LOT-TEST-001',
+            quantity_initial=50,
+            quantity_current=50,
+            unit_cost=1500
+        )
+        assert lot.unit_cost == 1500
+
+    def test_lot_unit_cost_default(self):
+        """Test valor por defecto de unit_cost"""
+        product = Product(name='Test', sku='T1')
+        lot = Lot(
+            product=product,
+            lot_code='LOT-TEST-002',
+            quantity_initial=10,
+            quantity_current=10
+        )
+        assert lot.unit_cost == 0 or lot.unit_cost is None
+
+
+class TestSupplierModel:
+    """Tests para campos nuevos en Supplier"""
+
+    def test_supplier_new_fields(self):
+        """Test campos abbreviation, is_active, created_at"""
+        supplier = Supplier(
+            name='Cosmos',
+            rut='12345678-9',
+            abbreviation='COSM',
+            is_active=True
+        )
+        assert supplier.abbreviation == 'COSM'
+        assert supplier.is_active is True
+
+    def test_supplier_is_active_default(self):
+        """Test que is_active por defecto es True"""
+        supplier = Supplier(name='Test Supplier')
+        assert supplier.is_active is True
+
+    def test_supplier_abbreviation_optional(self):
+        """Test que abbreviation es opcional"""
+        supplier = Supplier(name='Otro Proveedor')
+        assert supplier.abbreviation is None or supplier.abbreviation == ''

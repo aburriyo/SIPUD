@@ -4,9 +4,9 @@ Permite importar cartolas bancarias y conciliar con ventas.
 """
 import os
 import logging
-from flask import Blueprint, jsonify, request, g, render_template
+from flask import Blueprint, jsonify, request, g, render_template, send_file
 from flask_login import login_required, current_user
-from app.models import BankTransaction, Sale, Tenant, ActivityLog, utc_now
+from app.models import BankTransaction, Sale, Payment, Tenant, ActivityLog, utc_now
 from datetime import datetime, timedelta
 from decimal import Decimal
 from bson import ObjectId
@@ -19,14 +19,13 @@ bp = Blueprint('reconciliation', __name__, url_prefix='/reconciliation')
 
 
 def permission_required(module, action='view'):
-    """Decorator to check permissions before accessing a route"""
+    """Decorator to check permissions using ROLE_PERMISSIONS"""
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
                 return jsonify({'error': 'No autenticado'}), 401
-            # Solo admin y manager pueden acceder a cuadratura
-            if current_user.role not in ['admin', 'manager']:
+            if not current_user.has_permission(module, action):
                 return jsonify({'error': 'No tienes permisos para esta acción'}), 403
             return f(*args, **kwargs)
         return decorated_function
@@ -37,7 +36,7 @@ def permission_required(module, action='view'):
 @login_required
 def reconciliation_view():
     """Render reconciliation view page"""
-    if current_user.role not in ['admin', 'manager']:
+    if not current_user.has_permission('reconciliation', 'view'):
         return "No tienes permisos para ver esta página", 403
     return render_template('reconciliation.html')
 
@@ -53,28 +52,35 @@ def get_transactions():
     status = request.args.get('status', '')
     date_from = request.args.get('date_from', '')
     date_to = request.args.get('date_to', '')
+    q = request.args.get('q', '').strip()
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 50))
-    
+
     # Build query
     query = BankTransaction.objects(tenant=tenant)
-    
+
     if status:
         query = query.filter(status=status)
-    
+
+    if q:
+        from mongoengine.queryset.visitor import Q
+        query = query.filter(
+            Q(description__icontains=q) | Q(reference__icontains=q)
+        )
+
     if date_from:
         try:
             dt_from = datetime.strptime(date_from, '%Y-%m-%d')
             query = query.filter(date__gte=dt_from)
         except ValueError:
-            pass  # Formato de fecha inválido, ignorar filtro
-    
+            pass
+
     if date_to:
         try:
             dt_to = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
             query = query.filter(date__lt=dt_to)
         except ValueError:
-            pass  # Formato de fecha inválido, ignorar filtro
+            pass
     
     # Pagination
     total = query.count()
@@ -175,19 +181,20 @@ def _process_csv_file(file, tenant, user, req):
         
         # Process data rows
         created = 0
+        duplicates = 0
         errors = []
         filename = file.filename
-        
+
         for row_idx, row in enumerate(rows[header_row_idx + 1:], start=header_row_idx + 2):
             if not row or all(not cell.strip() for cell in row):
                 continue
-                
+
             try:
                 # Parse date
                 date_val = row[col_map['date']].strip() if col_map['date'] < len(row) else ''
                 if not date_val:
                     continue
-                
+
                 tx_date = None
                 for fmt in ['%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%Y/%m/%d', '%d.%m.%Y']:
                     try:
@@ -195,16 +202,16 @@ def _process_csv_file(file, tenant, user, req):
                         break
                     except Exception:
                         continue
-                
+
                 if not tx_date:
                     errors.append(f'Fila {row_idx}: formato de fecha no reconocido "{date_val}"')
                     continue
-                
+
                 # Parse amount
                 amount_val = row[col_map['amount']].strip() if col_map['amount'] < len(row) else ''
                 if not amount_val:
                     continue
-                
+
                 # Clean amount string
                 clean = amount_val.replace('$', '').replace('.', '').replace(',', '.').replace(' ', '').strip()
                 try:
@@ -212,15 +219,23 @@ def _process_csv_file(file, tenant, user, req):
                 except Exception:
                     errors.append(f'Fila {row_idx}: monto inválido "{amount_val}"')
                     continue
-                
+
                 # Determine transaction type
                 tx_type = 'credit' if amount > 0 else 'debit'
                 amount = abs(amount)
-                
+
                 # Get description and reference
                 description = row[col_map['description']].strip() if col_map.get('description') is not None and col_map['description'] < len(row) else ''
                 reference = row[col_map['reference']].strip() if col_map.get('reference') is not None and col_map['reference'] < len(row) else ''
-                
+
+                # Check for duplicates
+                existing = BankTransaction.objects(
+                    tenant=tenant, date=tx_date, amount=amount, description=description[:500]
+                ).first()
+                if existing:
+                    duplicates += 1
+                    continue
+
                 # Create transaction
                 tx = BankTransaction(
                     date=tx_date,
@@ -235,24 +250,25 @@ def _process_csv_file(file, tenant, user, req):
                 )
                 tx.save()
                 created += 1
-                
+
             except Exception as e:
                 errors.append(f'Fila {row_idx}: {str(e)}')
-        
+
         # Log activity
         ActivityLog.log(
             user=user,
             action='create',
             module='reconciliation',
             description=f'Importó {created} transacciones bancarias desde "{filename}"',
-            details={'file': filename, 'created': created, 'errors': len(errors)},
+            details={'file': filename, 'created': created, 'duplicates': duplicates, 'errors': len(errors)},
             request=req,
             tenant=tenant
         )
-        
+
         return jsonify({
             'success': True,
             'created': created,
+            'duplicates': duplicates,
             'errors': errors[:20],
             'total_errors': len(errors)
         })
@@ -329,21 +345,21 @@ def upload_transactions():
         
         # Process rows starting after header
         created = 0
+        duplicates = 0
         errors = []
         filename = file.filename
         data_start_row = header_row + 1
-        
+
         for row_idx, row in enumerate(ws.iter_rows(min_row=data_start_row, values_only=True), start=data_start_row):
             try:
                 # Parse date
                 date_val = row[col_map['date']]
                 if not date_val:
                     continue
-                
+
                 if isinstance(date_val, datetime):
                     tx_date = date_val
                 elif isinstance(date_val, str):
-                    # Try common date formats
                     for fmt in ['%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%Y/%m/%d']:
                         try:
                             tx_date = datetime.strptime(date_val.strip(), fmt)
@@ -355,16 +371,15 @@ def upload_transactions():
                         continue
                 else:
                     continue
-                
+
                 # Parse amount
                 amount_val = row[col_map['amount']]
                 if amount_val is None:
                     continue
-                
+
                 if isinstance(amount_val, (int, float)):
                     amount = Decimal(str(amount_val))
                 elif isinstance(amount_val, str):
-                    # Clean amount string
                     clean = amount_val.replace('$', '').replace('.', '').replace(',', '.').strip()
                     try:
                         amount = Decimal(clean)
@@ -373,15 +388,23 @@ def upload_transactions():
                         continue
                 else:
                     continue
-                
+
                 # Determine transaction type
                 tx_type = 'credit' if amount > 0 else 'debit'
                 amount = abs(amount)
-                
+
                 # Get description and reference
                 description = str(row[col_map.get('description', -1)] or '') if col_map.get('description') is not None else ''
                 reference = str(row[col_map.get('reference', -1)] or '') if col_map.get('reference') is not None else ''
-                
+
+                # Check for duplicates
+                existing = BankTransaction.objects(
+                    tenant=tenant, date=tx_date, amount=amount, description=description[:500]
+                ).first()
+                if existing:
+                    duplicates += 1
+                    continue
+
                 # Create transaction
                 tx = BankTransaction(
                     date=tx_date,
@@ -396,26 +419,27 @@ def upload_transactions():
                 )
                 tx.save()
                 created += 1
-                
+
             except Exception as e:
                 errors.append(f'Fila {row_idx}: {str(e)}')
-        
+
         wb.close()
-        
+
         # Log activity
         ActivityLog.log(
             user=current_user,
             action='create',
             module='reconciliation',
             description=f'Importó {created} transacciones bancarias desde "{filename}"',
-            details={'file': filename, 'created': created, 'errors': len(errors)},
+            details={'file': filename, 'created': created, 'duplicates': duplicates, 'errors': len(errors)},
             request=request,
             tenant=tenant
         )
-        
+
         return jsonify({
             'success': True,
             'created': created,
+            'duplicates': duplicates,
             'errors': errors[:20],
             'total_errors': len(errors)
         })
@@ -447,7 +471,21 @@ def match_transaction(tx_id):
     except Exception as e:
         logger.warning(f"match_transaction: Venta no encontrada {sale_id} - {e}")
         return jsonify({'error': 'Venta no encontrada'}), 404
-    
+
+    # Check if sale is already matched with another transaction
+    existing = BankTransaction.objects(tenant=tenant, matched_sale=sale, status='matched').first()
+    if existing:
+        return jsonify({'error': 'Esta venta ya está conciliada con otra transacción'}), 400
+
+    # Check amount difference and warn
+    sale_total = sale.total_amount
+    warning = None
+    amount_diff_pct = 0
+    if sale_total > 0:
+        amount_diff_pct = abs(float(tx.amount) - sale_total) / sale_total * 100
+        if amount_diff_pct > 10:
+            warning = f'Diferencia de monto: {amount_diff_pct:.1f}% (Transacción: ${float(tx.amount):,.0f} / Venta: ${sale_total:,.0f})'
+
     # Match
     tx.matched_sale = sale
     tx.status = 'matched'
@@ -455,12 +493,23 @@ def match_transaction(tx_id):
     tx.matched_at = utc_now()
     tx.matched_by = current_user
     tx.save()
-    
-    # Update sale payment status if needed
-    if sale.payment_status != 'pagado':
-        sale.payment_status = 'pagado'
-        sale.save()
-    
+
+    # Create Payment record
+    payment = Payment(
+        sale=sale,
+        tenant=tenant,
+        amount=tx.amount,
+        payment_via='transferencia',
+        payment_reference=f'Conciliación bancaria #{str(tx.id)[-6:]}',
+        notes=f'Conciliado desde cartola: {tx.description or ""}',
+        created_by=current_user
+    )
+    payment.save()
+
+    # Recalculate sale payment_status from payments
+    sale.payment_status = sale.computed_payment_status
+    sale.save()
+
     # Log activity
     ActivityLog.log(
         user=current_user,
@@ -472,33 +521,63 @@ def match_transaction(tx_id):
         request=request,
         tenant=tenant
     )
-    
-    return jsonify({
+
+    result = {
         'success': True,
         'message': 'Transacción conciliada exitosamente'
-    })
+    }
+    if warning:
+        result['warning'] = warning
+        result['amount_diff'] = round(amount_diff_pct, 1)
+        result['sale_total'] = sale_total
+
+    return jsonify(result)
 
 
 @bp.route('/api/transactions/<tx_id>/unmatch', methods=['POST'])
 @login_required
 @permission_required('reconciliation', 'edit')
 def unmatch_transaction(tx_id):
-    """Remove match from a transaction"""
+    """Remove match from a transaction and revert payment"""
     tenant = g.current_tenant
-    
+
     try:
         tx = BankTransaction.objects.get(id=ObjectId(tx_id), tenant=tenant)
     except Exception as e:
         logger.warning(f"unmatch_transaction: Transacción no encontrada {tx_id} - {e}")
         return jsonify({'error': 'Transacción no encontrada'}), 404
-    
+
+    # Save sale reference before clearing
+    sale = tx.matched_sale
+
+    # Delete the Payment created by this reconciliation
+    if sale:
+        payment_ref = f'Conciliación bancaria #{str(tx.id)[-6:]}'
+        Payment.objects(sale=sale, payment_reference=payment_ref).delete()
+
     tx.matched_sale = None
     tx.status = 'pending'
     tx.match_type = None
     tx.matched_at = None
     tx.matched_by = None
     tx.save()
-    
+
+    # Recalculate sale payment_status
+    if sale:
+        sale.payment_status = sale.computed_payment_status
+        sale.save()
+
+    ActivityLog.log(
+        user=current_user,
+        action='update',
+        module='reconciliation',
+        description=f'Deshizo conciliación de transacción ${float(tx.amount):,.0f}',
+        target_id=str(tx.id),
+        target_type='BankTransaction',
+        request=request,
+        tenant=tenant
+    )
+
     return jsonify({
         'success': True,
         'message': 'Conciliación removida'
@@ -520,7 +599,18 @@ def ignore_transaction(tx_id):
     
     tx.status = 'ignored'
     tx.save()
-    
+
+    ActivityLog.log(
+        user=current_user,
+        action='update',
+        module='reconciliation',
+        description=f'Ignoró transacción ${float(tx.amount):,.0f} - "{tx.description or ""}"',
+        target_id=str(tx.id),
+        target_type='BankTransaction',
+        request=request,
+        tenant=tenant
+    )
+
     return jsonify({
         'success': True,
         'message': 'Transacción ignorada'
@@ -647,10 +737,22 @@ def auto_match_all():
                 tx.matched_at = utc_now()
                 tx.matched_by = current_user
                 tx.save()
-                
-                best_match.payment_status = 'pagado'
+
+                # Create Payment record
+                payment = Payment(
+                    sale=best_match,
+                    tenant=tenant,
+                    amount=tx.amount,
+                    payment_via='transferencia',
+                    payment_reference=f'Conciliación bancaria #{str(tx.id)[-6:]}',
+                    notes=f'Auto-conciliado desde cartola: {tx.description or ""}',
+                    created_by=current_user
+                )
+                payment.save()
+
+                best_match.payment_status = best_match.computed_payment_status
                 best_match.save()
-                
+
                 matched += 1
                 
         except Exception as e:
@@ -741,3 +843,157 @@ def get_unmatched_sales():
         })
     
     return jsonify({'sales': results})
+
+
+@bp.route('/api/export', methods=['GET'])
+@login_required
+@permission_required('reconciliation', 'export')
+def export_reconciliation():
+    """Export reconciliation report to Excel"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    import io
+
+    tenant = g.current_tenant
+
+    # Apply same filters as the view
+    status = request.args.get('status', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+
+    query = BankTransaction.objects(tenant=tenant)
+
+    if status:
+        query = query.filter(status=status)
+    if date_from:
+        try:
+            query = query.filter(date__gte=datetime.strptime(date_from, '%Y-%m-%d'))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            query = query.filter(date__lt=datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1))
+        except ValueError:
+            pass
+
+    transactions = query.order_by('-date')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Cuadratura Bancaria"
+
+    headers = ['Fecha', 'Descripción', 'Referencia', 'Monto', 'Tipo', 'Estado', 'Venta Asociada', 'Cliente', 'Fecha Match']
+    ws.append(headers)
+
+    # Header styles
+    header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+
+    # Status colors
+    matched_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+    pending_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
+    ignored_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+
+    status_labels = {'pending': 'Pendiente', 'matched': 'Conciliada', 'ignored': 'Ignorada'}
+    type_labels = {'credit': 'Ingreso', 'debit': 'Egreso'}
+
+    for t in transactions:
+        sale_id = ''
+        customer = ''
+        if t.matched_sale:
+            sale_id = str(t.matched_sale.id)[-6:]
+            customer = t.matched_sale.customer_name or ''
+
+        row = [
+            t.date.strftime('%d/%m/%Y') if t.date else '',
+            t.description or '',
+            t.reference or '',
+            float(t.amount) if t.amount else 0,
+            type_labels.get(t.transaction_type, t.transaction_type),
+            status_labels.get(t.status, t.status),
+            sale_id,
+            customer,
+            t.matched_at.strftime('%d/%m/%Y %H:%M') if t.matched_at else '',
+        ]
+        ws.append(row)
+
+        # Apply status color to the row
+        row_idx = ws.max_row
+        fill = matched_fill if t.status == 'matched' else pending_fill if t.status == 'pending' else ignored_fill
+        for cell in ws[row_idx]:
+            cell.fill = fill
+
+    # Auto-adjust column widths
+    for col in ws.columns:
+        max_length = 0
+        column_letter = col[0].column_letter
+        for cell in col:
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        ws.column_dimensions[column_letter].width = min(max_length + 2, 40)
+
+    # Format amount column as number
+    for row in ws.iter_rows(min_row=2, min_col=4, max_col=4):
+        for cell in row:
+            cell.number_format = '#,##0'
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f'cuadratura_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+
+@bp.route('/api/transactions/batch', methods=['POST'])
+@login_required
+@permission_required('reconciliation', 'edit')
+def batch_transactions():
+    """Batch operations on transactions"""
+    tenant = g.current_tenant
+    data = request.get_json()
+
+    action = data.get('action')
+    ids = data.get('ids', [])
+
+    if action != 'ignore':
+        return jsonify({'error': 'Acción no soportada. Solo se permite "ignore".'}), 400
+
+    if not ids:
+        return jsonify({'error': 'No se proporcionaron IDs'}), 400
+
+    # Validate and process
+    processed = 0
+    for tx_id in ids:
+        try:
+            tx = BankTransaction.objects.get(id=ObjectId(tx_id), tenant=tenant, status='pending')
+            tx.status = 'ignored'
+            tx.save()
+            processed += 1
+        except Exception:
+            continue
+
+    ActivityLog.log(
+        user=current_user,
+        action='update',
+        module='reconciliation',
+        description=f'Ignoró {processed} transacciones en lote',
+        details={'ids': ids[:10], 'processed': processed},
+        request=request,
+        tenant=tenant
+    )
+
+    return jsonify({
+        'success': True,
+        'processed': processed
+    })

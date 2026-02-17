@@ -4,6 +4,14 @@
 
 ---
 
+## Contactos
+
+| Empresa | Nombre | Cargo |
+|---------|--------|-------|
+| Cosemar | Alexis | Jefe |
+
+---
+
 ## 1. Recepción de Mercancía (Consolidación)
 - Mejorar el flujo de recepción de mercancía en SIPUD
 - Consolidar el proceso actual

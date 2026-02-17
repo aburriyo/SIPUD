@@ -11,12 +11,13 @@
 **Estado:** ⏸️ Bloqueado (esperando Pablo)
 - [ ] Validar endpoint con datos reales de ManyChat
 - [ ] Testear flujo completo WhatsApp → SIPUD
-- [ ] Verificar descuento de stock automático
+- [ ] Verificar descuento de stock automático/
 
 ### 2. Ventas Mayoristas
-**Estado:** 🔴 Pendiente
-- [ ] Agregar canal `mayorista` a `SALES_CHANNELS` en `models.py`
-- [ ] Agregar filtro en vista de ventas para ver solo mayoristas
+**Estado:** ✅ Completado (2026-02-11)
+- [x] Agregar canal `mayorista` a `SALES_CHANNELS` en `models.py`
+- [x] Agregar filtro en vista de ventas para ver solo mayoristas
+- [x] Badge visual distintivo (amber) en tabla de ventas
 - [ ] Considerar campos adicionales (cliente mayorista, condiciones)
 
 ### 3. Integración Google Sheets (CRM → Clientes)

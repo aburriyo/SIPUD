@@ -3,12 +3,14 @@ Warehouse Operations Blueprint
 Gestiona operaciones diarias del almacén: pedidos, recepciones, mermas
 """
 
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, g, abort
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, g, abort, send_file
 from flask_login import login_required, current_user
-from app.models import Product, InboundOrder, Wastage, Lot, Supplier, ProductBundle, ActivityLog, utc_now
+from app.models import Product, InboundOrder, InboundOrderLineItem, Wastage, Lot, Supplier, ProductBundle, ActivityLog, utc_now
 from datetime import datetime, timedelta
 from bson import ObjectId
 from mongoengine import DoesNotExist
+import uuid
+import io
 from functools import wraps
 
 bp = Blueprint("warehouse", __name__, url_prefix="/warehouse")
@@ -56,8 +58,8 @@ def dashboard():
     # Pedidos pendientes de recepción
     pending_orders = InboundOrder.objects(
         tenant=tenant,
-        status='pending'
-    ).order_by('-date_received').limit(10)
+        status__in=['pending', 'partially_received']
+    ).order_by('-created_at').limit(10)
 
     return render_template(
         "warehouse/dashboard.html",
@@ -83,7 +85,7 @@ def receiving():
     tenant = g.current_tenant
     pending = InboundOrder.objects(
         tenant=tenant,
-        status='pending'
+        status__in=['pending', 'partially_received']
     ).order_by('-created_at')
     return render_template("warehouse/receiving.html", pending_orders=pending)
 
@@ -108,6 +110,266 @@ def expiry():
     )
 
 
+def generate_lot_code(supplier=None, product=None):
+    """Genera código de lote legible: LOT-{PROV}-{SKU}-{YYMMDD}-{SUFFIX}"""
+    now = datetime.now()
+    date_part = now.strftime('%y%m%d')
+
+    prov_part = 'GEN'
+    if supplier:
+        if hasattr(supplier, 'abbreviation') and supplier.abbreviation:
+            prov_part = supplier.abbreviation.upper()[:4]
+        elif hasattr(supplier, 'name') and supplier.name:
+            prov_part = supplier.name.upper()[:4].replace(' ', '')
+        elif isinstance(supplier, str) and supplier:
+            prov_part = supplier.upper()[:4].replace(' ', '')
+
+    sku_part = 'PROD'
+    if product:
+        if hasattr(product, 'sku') and product.sku:
+            sku_part = product.sku.upper()[:8]
+        elif hasattr(product, 'name') and product.name:
+            sku_part = product.name.upper()[:6].replace(' ', '')
+
+    suffix = uuid.uuid4().hex[:4].upper()
+    return f"LOT-{prov_part}-{sku_part}-{date_part}-{suffix}"
+
+
+# Supplier API
+@bp.route("/api/suppliers", methods=["GET"])
+@login_required
+@permission_required('orders', 'view')
+def get_suppliers():
+    """Listar proveedores activos con búsqueda opcional"""
+    try:
+        tenant = g.current_tenant
+        q = request.args.get('q', '').strip()
+
+        query = Supplier.objects(tenant=tenant, is_active__ne=False)
+        if q:
+            query = query.filter(name__icontains=q)
+
+        suppliers = query.order_by('name')
+
+        return jsonify({
+            "success": True,
+            "suppliers": [{
+                "id": str(s.id),
+                "name": s.name,
+                "rut": s.rut or '',
+                "contact_info": s.contact_info or '',
+                "abbreviation": s.abbreviation or ''
+            } for s in suppliers]
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route("/api/suppliers", methods=["POST"])
+@login_required
+@permission_required('orders', 'create')
+def create_supplier():
+    """Crear nuevo proveedor"""
+    try:
+        data = request.get_json()
+        tenant = g.current_tenant
+
+        if not data:
+            return jsonify({"success": False, "error": "No se recibieron datos"}), 400
+
+        name = data.get("name", "").strip()
+        if not name:
+            return jsonify({"success": False, "error": "El nombre es obligatorio"}), 400
+
+        rut = data.get("rut", "").strip() or None
+
+        supplier = Supplier(
+            name=name,
+            rut=rut,
+            contact_info=data.get("contact_info", "").strip(),
+            abbreviation=data.get("abbreviation", "").strip()[:10] or None,
+            tenant=tenant
+        )
+        supplier.save()
+
+        ActivityLog.log(
+            user=current_user,
+            action='create',
+            module='orders',
+            description=f'Creó proveedor "{name}"',
+            target_id=str(supplier.id),
+            target_type='Supplier',
+            request=request,
+            tenant=tenant
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Proveedor creado exitosamente",
+            "supplier": {
+                "id": str(supplier.id),
+                "name": supplier.name,
+                "rut": supplier.rut or '',
+                "contact_info": supplier.contact_info or '',
+                "abbreviation": supplier.abbreviation or ''
+            }
+        }), 201
+    except Exception as e:
+        error_msg = str(e)
+        if 'duplicate' in error_msg.lower() or 'unique' in error_msg.lower():
+            return jsonify({"success": False, "error": "Ya existe un proveedor con ese RUT"}), 400
+        return jsonify({"success": False, "error": error_msg}), 500
+
+
+@bp.route("/api/suppliers/template", methods=["GET"])
+@login_required
+@permission_required('orders', 'view')
+def download_supplier_template():
+    """Descargar plantilla Excel para registro masivo de proveedores"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Proveedores"
+
+    headers = ["Nombre (*)", "RUT", "Contacto", "Abreviación"]
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    thin_border = Border(
+        bottom=Side(style='thin', color='94A3B8')
+    )
+
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+
+    # Ejemplo para guiar al usuario
+    ws.append(["Distribuidora Ejemplo SpA", "76.123.456-7", "contacto@ejemplo.cl / +56912345678", "DEJE"])
+    for cell in ws[2]:
+        cell.font = Font(italic=True, color="94A3B8")
+        cell.border = thin_border
+
+    # Instrucciones en fila 4
+    ws.append([])
+    ws.append(["INSTRUCCIONES:"])
+    ws['A4'].font = Font(bold=True, size=10, color="DC2626")
+    ws.append(["- Nombre (*) es obligatorio. Los demás campos son opcionales."])
+    ws.append(["- RUT debe ser único por proveedor (ej: 76.123.456-7)."])
+    ws.append(["- Abreviación máx 10 caracteres, se usa para códigos de lote (ej: COSM, DIST)."])
+    ws.append(["- Elimina esta fila de ejemplo antes de subir."])
+
+    for row in range(5, 9):
+        ws.cell(row=row, column=1).font = Font(size=9, color="64748B")
+
+    ws.column_dimensions['A'].width = 35
+    ws.column_dimensions['B'].width = 18
+    ws.column_dimensions['C'].width = 40
+    ws.column_dimensions['D'].width = 16
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name="plantilla_proveedores.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@bp.route("/api/suppliers/upload", methods=["POST"])
+@login_required
+@permission_required('orders', 'create')
+def upload_suppliers():
+    """Subir Excel con proveedores para registro masivo"""
+    from openpyxl import load_workbook
+
+    try:
+        tenant = g.current_tenant
+
+        if 'file' not in request.files:
+            return jsonify({"success": False, "error": "No se recibió archivo"}), 400
+
+        file = request.files['file']
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            return jsonify({"success": False, "error": "El archivo debe ser Excel (.xlsx)"}), 400
+
+        wb = load_workbook(file, read_only=True)
+        ws = wb.active
+
+        created = []
+        errors = []
+        row_num = 0
+
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            row_num += 1
+
+            # Saltar filas vacías o de instrucciones
+            if not row or not row[0]:
+                continue
+            name = str(row[0]).strip()
+            if not name or name.startswith("INSTRUCCIONES") or name.startswith("-"):
+                continue
+
+            rut = str(row[1]).strip() if len(row) > 1 and row[1] else None
+            contact_info = str(row[2]).strip() if len(row) > 2 and row[2] else ''
+            abbreviation = str(row[3]).strip()[:10] if len(row) > 3 and row[3] else None
+
+            # Verificar duplicado por nombre en este tenant
+            existing = Supplier.objects(tenant=tenant, name__iexact=name).first()
+            if existing:
+                errors.append(f"Fila {row_num + 1}: '{name}' ya existe, se omitió")
+                continue
+
+            # Verificar duplicado por RUT si se proporcionó
+            if rut:
+                existing_rut = Supplier.objects(rut=rut).first()
+                if existing_rut:
+                    errors.append(f"Fila {row_num + 1}: RUT '{rut}' ya registrado, se omitió")
+                    continue
+
+            try:
+                supplier = Supplier(
+                    name=name,
+                    rut=rut,
+                    contact_info=contact_info,
+                    abbreviation=abbreviation,
+                    tenant=tenant
+                )
+                supplier.save()
+                created.append(name)
+            except Exception as e:
+                errors.append(f"Fila {row_num + 1}: Error con '{name}' - {str(e)}")
+
+        wb.close()
+
+        if created:
+            ActivityLog.log(
+                user=current_user,
+                action='create',
+                module='orders',
+                description=f'Carga masiva: {len(created)} proveedores creados',
+                target_type='Supplier',
+                request=request,
+                tenant=tenant
+            )
+
+        return jsonify({
+            "success": True,
+            "message": f"{len(created)} proveedores creados exitosamente",
+            "created": created,
+            "errors": errors
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error procesando archivo: {str(e)}"}), 500
+
+
 # API Endpoints
 @bp.route("/api/orders", methods=["GET"])
 @login_required
@@ -118,28 +380,35 @@ def get_orders():
         tenant = g.current_tenant
         orders = InboundOrder.objects(tenant=tenant).order_by('-created_at')
 
-        return jsonify(
-            {
-                "success": True,
-                "orders": [
-                    {
-                        "id": str(o.id),
-                        "supplier": o.supplier_name,
-                        "invoice_number": o.invoice_number,
-                        "status": o.status,
-                        "total": float(o.total) if o.total else 0,
-                        "notes": o.notes,
-                        "date_received": o.date_received.strftime("%d/%m/%Y %H:%M")
-                        if o.date_received
-                        else "",
-                        "created_at": o.created_at.strftime("%d/%m/%Y %H:%M")
-                        if o.created_at
-                        else "",
-                    }
-                    for o in orders
-                ],
+        def serialize_order(o):
+            data = {
+                "id": str(o.id),
+                "supplier": o.supplier_name,
+                "supplier_id": str(o.supplier.id) if o.supplier else None,
+                "invoice_number": o.invoice_number,
+                "status": o.status,
+                "total": float(o.total) if o.total else 0,
+                "notes": o.notes,
+                "date_received": o.date_received.strftime("%d/%m/%Y %H:%M") if o.date_received else "",
+                "created_at": o.created_at.strftime("%d/%m/%Y %H:%M") if o.created_at else "",
+                "line_items": []
             }
-        ), 200
+            if o.line_items:
+                for li in o.line_items:
+                    data["line_items"].append({
+                        "product_id": str(li.product.id) if li.product else None,
+                        "product_name": li.product_name,
+                        "product_sku": li.product_sku or '',
+                        "quantity_ordered": li.quantity_ordered,
+                        "quantity_received": li.quantity_received or 0,
+                        "unit_cost": float(li.unit_cost) if li.unit_cost else 0
+                    })
+            return data
+
+        return jsonify({
+            "success": True,
+            "orders": [serialize_order(o) for o in orders]
+        }), 200
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -149,12 +418,11 @@ def get_orders():
 @login_required
 @permission_required('orders', 'create')
 def create_order():
-    """Crear nuevo pedido a proveedor"""
+    """Crear nuevo pedido a proveedor con line items opcionales"""
     try:
         data = request.get_json()
         tenant = g.current_tenant
 
-        # Validaciones
         if not data:
             return jsonify({"success": False, "error": "No se recibieron datos"}), 400
 
@@ -163,57 +431,92 @@ def create_order():
         total = data.get("total", 0)
 
         if not supplier_name:
-            return jsonify(
-                {"success": False, "error": "El proveedor es obligatorio"}
-            ), 400
+            return jsonify({"success": False, "error": "El proveedor es obligatorio"}), 400
 
         if not invoice_number:
-            return jsonify(
-                {"success": False, "error": "El número de factura es obligatorio"}
-            ), 400
+            return jsonify({"success": False, "error": "El número de factura es obligatorio"}), 400
 
         try:
             total = float(total)
             if total < 0:
-                return jsonify(
-                    {"success": False, "error": "El total no puede ser negativo"}
-                ), 400
+                return jsonify({"success": False, "error": "El total no puede ser negativo"}), 400
         except (ValueError, TypeError):
-            return jsonify(
-                {"success": False, "error": "El total debe ser un número válido"}
-            ), 400
+            return jsonify({"success": False, "error": "El total debe ser un número válido"}), 400
+
+        # Resolver proveedor desde supplier_id si viene
+        supplier_ref = None
+        supplier_id = data.get("supplier_id")
+        if supplier_id:
+            try:
+                supplier_ref = Supplier.objects.get(id=ObjectId(supplier_id), tenant=tenant)
+                supplier_name = supplier_ref.name
+            except DoesNotExist:
+                pass
+
+        # Procesar line items
+        line_items = []
+        items_data = data.get("items", [])
+        for idx, item in enumerate(items_data):
+            product_id = item.get("product_id")
+            if not product_id:
+                return jsonify({"success": False, "error": f"Item {idx + 1}: producto requerido"}), 400
+
+            try:
+                product = Product.objects.get(id=ObjectId(product_id), tenant=tenant)
+            except DoesNotExist:
+                return jsonify({"success": False, "error": f"Item {idx + 1}: producto no encontrado"}), 404
+
+            qty = int(item.get("quantity_ordered", 0))
+            if qty <= 0:
+                return jsonify({"success": False, "error": f"Item {idx + 1}: cantidad debe ser mayor a 0"}), 400
+
+            cost = float(item.get("unit_cost", 0))
+            if cost < 0:
+                return jsonify({"success": False, "error": f"Item {idx + 1}: costo no puede ser negativo"}), 400
+
+            line_items.append(InboundOrderLineItem(
+                product=product,
+                product_name=product.name,
+                product_sku=product.sku or '',
+                quantity_ordered=qty,
+                quantity_received=0,
+                unit_cost=cost
+            ))
+
+        # Auto-calcular total desde line items si los hay y total es 0
+        if line_items and total == 0:
+            total = sum(li.quantity_ordered * float(li.unit_cost or 0) for li in line_items)
 
         new_order = InboundOrder(
+            supplier=supplier_ref,
             supplier_name=supplier_name,
             invoice_number=invoice_number,
             notes=data.get("notes", "").strip(),
             status="pending",
             total=total,
+            line_items=line_items,
             created_at=datetime.now(),
             tenant=tenant,
         )
-
         new_order.save()
 
-        # Log activity
         ActivityLog.log(
             user=current_user,
             action='create',
             module='orders',
-            description=f'Creó pedido a "{supplier_name}" - Factura: {invoice_number}, Total: ${total:,.0f}',
+            description=f'Creó pedido a "{supplier_name}" - Factura: {invoice_number}, Total: ${total:,.0f}' +
+                        (f', {len(line_items)} producto(s)' if line_items else ''),
             target_id=str(new_order.id),
             target_type='InboundOrder',
             request=request,
             tenant=tenant
         )
 
-        return jsonify(
-            {
-                "success": True,
-                "message": "Pedido creado exitosamente",
-                "order_id": str(new_order.id),
-            }
-        ), 201
+        return jsonify({
+            "success": True,
+            "message": "Pedido creado exitosamente",
+            "order_id": str(new_order.id),
+        }), 201
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -238,6 +541,13 @@ def update_order(order_id):
 
         if "supplier" in data:
             order.supplier_name = data["supplier"]
+        if "supplier_id" in data and data["supplier_id"]:
+            try:
+                supplier_ref = Supplier.objects.get(id=ObjectId(data["supplier_id"]), tenant=tenant)
+                order.supplier = supplier_ref
+                order.supplier_name = supplier_ref.name
+            except DoesNotExist:
+                pass
         if "invoice_number" in data:
             order.invoice_number = data["invoice_number"]
         if "notes" in data:
@@ -246,6 +556,35 @@ def update_order(order_id):
             order.total = data["total"]
         if "status" in data:
             order.status = data["status"]
+
+        # Editar line items solo si orden está pendiente
+        if "items" in data and order.status == 'pending':
+            line_items = []
+            for idx, item in enumerate(data["items"]):
+                product_id = item.get("product_id")
+                if not product_id:
+                    continue
+                try:
+                    product = Product.objects.get(id=ObjectId(product_id), tenant=tenant)
+                except DoesNotExist:
+                    return jsonify({"success": False, "error": f"Item {idx + 1}: producto no encontrado"}), 404
+
+                qty = int(item.get("quantity_ordered", 0))
+                if qty <= 0:
+                    return jsonify({"success": False, "error": f"Item {idx + 1}: cantidad debe ser mayor a 0"}), 400
+
+                cost = float(item.get("unit_cost", 0))
+                line_items.append(InboundOrderLineItem(
+                    product=product,
+                    product_name=product.name,
+                    product_sku=product.sku or '',
+                    quantity_ordered=qty,
+                    quantity_received=0,
+                    unit_cost=cost
+                ))
+            order.line_items = line_items
+            if line_items and float(data.get("total", 0)) == 0:
+                order.total = sum(li.quantity_ordered * float(li.unit_cost or 0) for li in line_items)
 
         order.save()
 
@@ -322,33 +661,39 @@ def delete_order(order_id):
 @bp.route("/api/receiving/orders", methods=["GET"])
 @login_required
 def get_receiving_orders():
-    """Obtener pedidos pendientes de recepción"""
+    """Obtener pedidos pendientes de recepción (pending y partially_received)"""
     try:
         tenant = g.current_tenant
         orders = InboundOrder.objects(
             tenant=tenant,
-            status='pending'
+            status__in=['pending', 'partially_received']
         ).order_by('-created_at')
 
-        return jsonify(
-            {
-                "success": True,
-                "orders": [
-                    {
-                        "id": str(o.id),
-                        "supplier": o.supplier_name,
-                        "invoice_number": o.invoice_number,
-                        "status": o.status,
-                        "total": float(o.total) if o.total else 0,
-                        "notes": o.notes,
-                        "created_at": o.created_at.strftime("%d/%m/%Y %H:%M")
-                        if o.created_at
-                        else "",
-                    }
-                    for o in orders
-                ],
+        result = []
+        for o in orders:
+            order_data = {
+                "id": str(o.id),
+                "supplier": o.supplier_name,
+                "invoice_number": o.invoice_number,
+                "status": o.status,
+                "total": float(o.total) if o.total else 0,
+                "notes": o.notes,
+                "created_at": o.created_at.strftime("%d/%m/%Y %H:%M") if o.created_at else "",
+                "line_items": []
             }
-        ), 200
+            if o.line_items:
+                for li in o.line_items:
+                    order_data["line_items"].append({
+                        "product_id": str(li.product.id) if li.product else None,
+                        "product_name": li.product_name,
+                        "product_sku": li.product_sku or '',
+                        "quantity_ordered": li.quantity_ordered,
+                        "quantity_received": li.quantity_received or 0,
+                        "unit_cost": float(li.unit_cost) if li.unit_cost else 0
+                    })
+            result.append(order_data)
+
+        return jsonify({"success": True, "orders": result}), 200
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -358,7 +703,7 @@ def get_receiving_orders():
 @login_required
 @permission_required('orders', 'receive')
 def confirm_receiving(order_id):
-    """Confirmar recepción de pedido con validaciones y procesamiento de lotes"""
+    """Confirmar recepción de pedido con soporte para recepción parcial"""
     try:
         tenant = g.current_tenant
         try:
@@ -366,148 +711,179 @@ def confirm_receiving(order_id):
         except DoesNotExist:
             return jsonify({"success": False, "error": "Pedido no encontrado"}), 404
 
-        # Verificar que pertenece al tenant actual
         if order.tenant != tenant:
             return jsonify({"success": False, "error": "Acceso denegado"}), 403
 
-        # Verificar que el pedido no haya sido ya recibido
-        if order.status == "received":
-            return jsonify(
-                {"success": False, "error": "Este pedido ya fue recibido"}
-            ), 400
+        if order.status in ("received", "paid"):
+            return jsonify({"success": False, "error": "Este pedido ya fue recibido completamente"}), 400
 
-        # Obtener datos del request
         data = request.get_json()
-
-        # Validar datos recibidos
         if not data:
             return jsonify({"success": False, "error": "No se recibieron datos"}), 400
 
         products = data.get("products", [])
+        if not products:
+            return jsonify({"success": False, "error": "Debe agregar al menos un producto a la recepción"}), 400
 
-        # Validar que hay al menos un producto
-        if not products or len(products) == 0:
-            return jsonify(
-                {
-                    "success": False,
-                    "error": "Debe agregar al menos un producto a la recepción",
-                }
-            ), 400
+        # Resolver supplier para lot codes
+        supplier_for_code = order.supplier or order.supplier_name
 
-        # Procesar cada producto
+        created_lots = []
+
         for idx, item in enumerate(products):
-            # Validar campos requeridos
             if not item.get("product_id"):
-                return jsonify(
-                    {
-                        "success": False,
-                        "error": f"Producto {idx + 1}: Debe seleccionar un producto",
-                    }
-                ), 400
+                return jsonify({"success": False, "error": f"Producto {idx + 1}: Debe seleccionar un producto"}), 400
 
-            # Validar y convertir cantidad
             try:
                 quantity = int(item.get("quantity", 0))
                 if quantity <= 0:
-                    return jsonify(
-                        {
-                            "success": False,
-                            "error": f"Producto {idx + 1}: La cantidad debe ser mayor a 0",
-                        }
-                    ), 400
+                    return jsonify({"success": False, "error": f"Producto {idx + 1}: La cantidad debe ser mayor a 0"}), 400
             except (ValueError, TypeError):
-                return jsonify(
-                    {
-                        "success": False,
-                        "error": f"Producto {idx + 1}: Cantidad inválida",
-                    }
-                ), 400
+                return jsonify({"success": False, "error": f"Producto {idx + 1}: Cantidad inválida"}), 400
 
-            # Validar que el producto existe y pertenece al tenant
             try:
                 product = Product.objects.get(id=ObjectId(item["product_id"]))
             except DoesNotExist:
-                return jsonify(
-                    {
-                        "success": False,
-                        "error": f"Producto {idx + 1}: Producto no encontrado",
-                    }
-                ), 404
+                return jsonify({"success": False, "error": f"Producto {idx + 1}: Producto no encontrado"}), 404
 
             if product.tenant != tenant:
-                return jsonify(
-                    {
-                        "success": False,
-                        "error": f"Producto {idx + 1}: Acceso denegado",
-                    }
-                ), 403
+                return jsonify({"success": False, "error": f"Producto {idx + 1}: Acceso denegado"}), 403
 
-            # Validar código de lote (opcional pero debe ser string si se proporciona)
+            # Generar lot code legible si no viene
             lot_code = str(item.get("lot_code", "")).strip()
             if not lot_code:
-                lot_code = f"LOT-{str(order.id)[-6:]}-{str(product.id)[-6:]}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                lot_code = generate_lot_code(supplier=supplier_for_code, product=product)
 
-            # Validar fecha de vencimiento (opcional)
+            # Unit cost
+            unit_cost = 0
+            if item.get("unit_cost") is not None:
+                try:
+                    unit_cost = float(item["unit_cost"])
+                except (ValueError, TypeError):
+                    unit_cost = 0
+
+            # Si la orden tiene line_items, buscar el line item correspondiente para heredar costo
+            if not unit_cost and order.line_items:
+                for li in order.line_items:
+                    if li.product and str(li.product.id) == item["product_id"]:
+                        unit_cost = float(li.unit_cost or 0)
+                        break
+
+            # Fecha de vencimiento
             expiry_date = None
             if item.get("expiry_date"):
                 try:
-                    expiry_date = datetime.strptime(
-                        str(item["expiry_date"]).strip(), "%Y-%m-%d"
-                    ).date()
-                    # Validar que no sea fecha pasada
+                    expiry_date = datetime.strptime(str(item["expiry_date"]).strip(), "%Y-%m-%d").date()
                     if expiry_date < datetime.now().date():
-                        return jsonify(
-                            {
-                                "success": False,
-                                "error": f"Producto {idx + 1}: La fecha de vencimiento no puede ser en el pasado",
-                            }
-                        ), 400
+                        return jsonify({"success": False, "error": f"Producto {idx + 1}: La fecha de vencimiento no puede ser en el pasado"}), 400
                 except (ValueError, TypeError):
-                    return jsonify(
-                        {
-                            "success": False,
-                            "error": f"Producto {idx + 1}: Formato de fecha de vencimiento inválido (use YYYY-MM-DD)",
-                        }
-                    ), 400
+                    return jsonify({"success": False, "error": f"Producto {idx + 1}: Formato de fecha inválido (use YYYY-MM-DD)"}), 400
 
-            # Crear lote de inventario
-            # FIXED: Using 'order' instead of 'inbound_order_id' and adding tenant
             lot = Lot(
                 product=product,
                 order=order,
-                tenant=tenant,  # FIXED: Added tenant_id
+                tenant=tenant,
                 lot_code=lot_code,
                 quantity_initial=quantity,
                 quantity_current=quantity,
+                unit_cost=unit_cost,
                 expiry_date=expiry_date,
             )
             lot.save()
 
-            # FIXED: Removed product.stock += quantity (stock is calculated from Lots)
+            created_lots.append({
+                "lot_id": str(lot.id),
+                "lot_code": lot_code,
+                "product_name": product.name,
+                "product_sku": product.sku or '',
+                "quantity": quantity,
+                "unit_cost": unit_cost,
+                "expiry_date": expiry_date.strftime("%d/%m/%Y") if expiry_date else None
+            })
 
-        # Actualizar estado del pedido
-        order.status = "received"
+            # Actualizar quantity_received en line_items si existen
+            if order.line_items:
+                for li in order.line_items:
+                    if li.product and str(li.product.id) == item["product_id"]:
+                        li.quantity_received = (li.quantity_received or 0) + quantity
+                        break
+
+        # Determinar status final
+        if order.line_items:
+            all_received = all(
+                (li.quantity_received or 0) >= li.quantity_ordered
+                for li in order.line_items
+            )
+            order.status = "received" if all_received else "partially_received"
+        else:
+            order.status = "received"
+
         order.date_received = datetime.now()
         order.save()
 
-        # Log activity
         ActivityLog.log(
             user=current_user,
             action='receive',
             module='orders',
-            description=f'Recibió pedido de "{order.supplier_name}" - Factura: {order.invoice_number}, {len(products)} producto(s)',
+            description=f'Recibió {"parcialmente " if order.status == "partially_received" else ""}pedido de "{order.supplier_name}" - Factura: {order.invoice_number}, {len(products)} producto(s)',
             target_id=str(order.id),
             target_type='InboundOrder',
             request=request,
             tenant=tenant
         )
 
-        return jsonify(
-            {
-                "success": True,
-                "message": f"Recepción confirmada exitosamente. {len(products)} producto(s) agregado(s) al inventario.",
-            }
-        ), 200
+        status_label = "parcialmente recibido" if order.status == "partially_received" else "recibido"
+        return jsonify({
+            "success": True,
+            "message": f"Recepción confirmada. Pedido {status_label}. {len(products)} producto(s) agregado(s) al inventario.",
+            "status": order.status,
+            "lots": created_lots
+        }), 200
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route("/api/orders/<order_id>/receiving-summary", methods=["GET"])
+@login_required
+@permission_required('orders', 'view')
+def receiving_summary(order_id):
+    """Resumen de recepción: lotes creados, cantidades y costos"""
+    try:
+        tenant = g.current_tenant
+        try:
+            order = InboundOrder.objects.get(id=ObjectId(order_id))
+        except DoesNotExist:
+            return jsonify({"success": False, "error": "Pedido no encontrado"}), 404
+
+        if order.tenant != tenant:
+            return jsonify({"success": False, "error": "Acceso denegado"}), 403
+
+        lots = Lot.objects(order=order)
+        lots_data = [{
+            "lot_code": lot.lot_code,
+            "product_name": lot.product.name if lot.product else 'N/A',
+            "product_sku": lot.product.sku if lot.product else '',
+            "quantity": lot.quantity_initial,
+            "unit_cost": float(lot.unit_cost) if lot.unit_cost else 0,
+            "subtotal": lot.quantity_initial * float(lot.unit_cost or 0),
+            "expiry_date": lot.expiry_date.strftime("%d/%m/%Y") if lot.expiry_date else None,
+            "created_at": lot.created_at.strftime("%d/%m/%Y %H:%M") if lot.created_at else ''
+        } for lot in lots]
+
+        total_items = sum(l["quantity"] for l in lots_data)
+        total_cost = sum(l["subtotal"] for l in lots_data)
+
+        return jsonify({
+            "success": True,
+            "order_id": str(order.id),
+            "supplier": order.supplier_name,
+            "invoice_number": order.invoice_number,
+            "status": order.status,
+            "lots": lots_data,
+            "total_items": total_items,
+            "total_cost": total_cost
+        }), 200
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

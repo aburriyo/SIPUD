@@ -22,6 +22,7 @@ ROLE_PERMISSIONS = {
         'reports': ['view', 'export'],
         'activity_log': ['view'],
         'customers': ['view', 'create', 'export', 'sync'],
+        'reconciliation': ['view', 'create', 'edit', 'export'],
     },
     'manager': {
         'users': ['view', 'create', 'edit'],  # No delete
@@ -32,6 +33,7 @@ ROLE_PERMISSIONS = {
         'reports': ['view', 'export'],
         'activity_log': [],  # No access
         'customers': ['view', 'create', 'export'],
+        'reconciliation': ['view', 'create', 'edit', 'export'],
     },
     'warehouse': {
         'users': [],
@@ -42,6 +44,7 @@ ROLE_PERMISSIONS = {
         'reports': ['view'],
         'activity_log': [],
         'customers': [],
+        'reconciliation': [],
     },
     'sales': {
         'users': [],
@@ -52,6 +55,7 @@ ROLE_PERMISSIONS = {
         'reports': ['view', 'export'],
         'activity_log': [],
         'customers': ['view'],
+        'reconciliation': [],
     },
 }
 
@@ -89,7 +93,8 @@ SALES_CHANNELS = {
     'manual': 'Manual (SIPUD)',
     'whatsapp': 'WhatsApp',
     'shopify': 'Shopify',
-    'web': 'Web'
+    'web': 'Web',
+    'mayorista': 'Mayorista'
 }
 
 
@@ -104,7 +109,10 @@ class Supplier(db.Document):
     name = db.StringField(max_length=100, required=True)
     rut = db.StringField(max_length=20, unique=True, sparse=True)
     contact_info = db.StringField(max_length=200)
+    abbreviation = db.StringField(max_length=10)
+    is_active = db.BooleanField(default=True)
     tenant = db.ReferenceField(Tenant)
+    created_at = db.DateTimeField(default=utc_now)
     meta = {'collection': 'suppliers'}
 
 
@@ -195,21 +203,47 @@ class ProductBundle(db.Document):
     meta = {'collection': 'product_bundles'}
 
 
+class InboundOrderLineItem(db.EmbeddedDocument):
+    """Item esperado en un pedido de compra"""
+    product = db.ReferenceField(Product, required=True)
+    product_name = db.StringField(max_length=100)
+    product_sku = db.StringField(max_length=50)
+    quantity_ordered = db.IntField(required=True)
+    quantity_received = db.IntField(default=0)
+    unit_cost = db.DecimalField(precision=2, default=0)
+
+
 class InboundOrder(db.Document):
-    supplier = db.ReferenceField(Supplier)  # FIXED: Only reference to Supplier
-    supplier_name = db.StringField(max_length=200)  # Cache of supplier name
+    supplier = db.ReferenceField(Supplier)
+    supplier_name = db.StringField(max_length=200)
     invoice_number = db.StringField(max_length=50)
     date_received = db.DateTimeField()
     created_at = db.DateTimeField(default=utc_now)
-    total = db.DecimalField(precision=2, default=0)  # FIXED: Decimal for monetary precision
-    status = db.StringField(max_length=20, default='pending')  # pending, received, paid
+    total = db.DecimalField(precision=2, default=0)
+    status = db.StringField(max_length=20, default='pending')  # pending, partially_received, received, paid
     notes = db.StringField()
+    line_items = db.EmbeddedDocumentListField(InboundOrderLineItem)
     tenant = db.ReferenceField(Tenant)
-    meta = {'collection': 'inbound_orders'}
+    meta = {
+        'collection': 'inbound_orders',
+        'indexes': ['tenant', 'status', '-created_at']
+    }
 
     @property
     def lots(self):
         return Lot.objects(order=self)
+
+    @property
+    def is_fully_received(self):
+        if not self.line_items:
+            return self.status == 'received'
+        return all(li.quantity_received >= li.quantity_ordered for li in self.line_items)
+
+    @property
+    def computed_total(self):
+        if not self.line_items:
+            return float(self.total) if self.total else 0
+        return sum(li.quantity_ordered * float(li.unit_cost or 0) for li in self.line_items)
 
 
 class Lot(db.Document):
@@ -219,6 +253,7 @@ class Lot(db.Document):
     lot_code = db.StringField(max_length=50)
     quantity_initial = db.IntField(required=True)
     quantity_current = db.IntField(required=True)
+    unit_cost = db.DecimalField(precision=2, default=0)
     expiry_date = db.DateField()
     created_at = db.DateTimeField(default=utc_now)
     meta = {'collection': 'lots'}
@@ -245,7 +280,7 @@ class Sale(db.Document):
     sales_channel = db.StringField(
         max_length=20,
         default='manual',
-        choices=['manual', 'whatsapp', 'shopify', 'web']
+        choices=['manual', 'whatsapp', 'shopify', 'web', 'mayorista']
     )
 
     # Delivery fields
